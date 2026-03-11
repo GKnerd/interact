@@ -1,0 +1,25 @@
+# Ignore the docker folder
+.docker
+
+# Ignore conda config
+*.yml
+
+# Ignore Python 
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+
+# Ignore Git and IDE metadata
+.git
+.gitignore
+.vscode/
+.idea/
+
+# Ignore build artifacts
+build/
+dist/
+*.egg-info/
