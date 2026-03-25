@@ -5,6 +5,7 @@ import torch.optim as optim
 import numpy as np
 import torch_dct as dct #https://github.com/zh217/torch-dct
 import time
+from tqdm import tqdm
 import hydra
 from omegaconf import DictConfig
 
@@ -39,10 +40,12 @@ def get_dataloader(split='train', batch_size=256, include_amass=True, include_CM
     dataset = ConcatDataset(datalst)
     dataloader = DataLoader(dataset, 
                 batch_size=batch_size, 
-                shuffle=True if split == 'train' else False)
+                shuffle=True if split == 'train' else False,
+                num_workers=8,
+                pin_memory=True)
     return dataloader
 
-def log_metrics(dataloader, split, writer, epoch):
+def log_metrics(dataloader, split, writer, epoch, model, device):
     total_loss, n=0, 0
     model.eval()
     with torch.no_grad():
@@ -65,7 +68,7 @@ def log_metrics(dataloader, split, writer, epoch):
 @hydra.main(config_path="../config", config_name="training")
 def main(cfg: DictConfig) -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
-
+    print(f"!!! TRAINING ON: {device.upper()} !!!")
     selected_model = cfg.selected_model
     model_config = cfg.hh_models[selected_model]  
 
@@ -101,10 +104,25 @@ def main(cfg: DictConfig) -> None:
     for epoch in range(cfg.Training.epochs):
         total_loss, n = 0, 0
         model.train()
-        for j, batch in enumerate(train_dataloader):
+        progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch+1}/{cfg.Training.epochs}")
+        for j, batch in enumerate(progress_bar):
             offset = batch[0].reshape(batch[0].shape[0], batch[0].shape[1], -1)[:, -1].unsqueeze(1)
             alice_hist, alice_fut, bob_hist, bob_fut = [(b.reshape(b.shape[0], b.shape[1], -1) - offset).to(device) for b in batch]
-            alice_forecasts = model(alice_hist, bob_hist, bob_fut)
+            
+            # --- THE TRAP ---
+            if alice_hist.shape[1] <= 1 or bob_hist.shape[1] <= 1 or bob_fut.shape[1] <= 1:
+                print(f"\n[!] CAUGHT BAD DATA AT BATCH {j}")
+                print(f"alice_hist: {alice_hist.shape} | bob_hist: {bob_hist.shape} | bob_fut: {bob_fut.shape}")
+                continue  # Skip this broken batch so the script doesn't die!
+            # ----------------
+
+            try:
+                alice_forecasts = model(alice_hist, bob_hist, bob_fut)
+            except RuntimeError as e:
+                print(f"\n[!] CRASHED AT BATCH {j} WITH SHAPE: {alice_hist.shape}")
+                raise e
+            
+            # alice_forecasts = model(alice_hist, bob_hist, bob_fut)
             loss = mpjpe_loss(alice_forecasts, alice_fut)
                 
             optimizer.zero_grad()
@@ -114,7 +132,7 @@ def main(cfg: DictConfig) -> None:
             batch_dim = alice_hist.shape[0]
             total_loss += loss * batch_dim
             n += batch_dim
-
+            progress_bar.set_postfix(loss=loss.item())
         print(f"train loss after epoch {epoch + 1} = ", total_loss.item() / n)
         writer.add_scalar('train/mpjpe', total_loss.item() / n, epoch + 1)
         # if (epoch+1)%5 == 0:

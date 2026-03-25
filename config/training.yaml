@@ -1,4 +1,4 @@
-base_dev_dir: '/share/portal/kk837/interact'
+base_dev_dir: '/home/torch_1_13_1_docker/interact'
 
 
 Training:

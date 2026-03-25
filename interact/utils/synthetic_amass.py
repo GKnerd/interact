@@ -45,7 +45,7 @@ class Synthetic_AMASS(Dataset):
 
     def add_amass_dataset(self):
         for episode in os.listdir(f'{self.data_dir}/{self.split}'):
-            print(f'Episode: {self.data_dir}/{self.split}/{episode}')
+            # print(f'Episode: {self.data_dir}/{self.split}/{episode}')
             json_data = read_json(f'{self.data_dir}/{self.split}/{episode}')
 
             downsample_rate = self.sample_rate // self.output_rate

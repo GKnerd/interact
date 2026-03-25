@@ -1,4 +1,4 @@
-base_dev_dir: '/share/portal/kk837/interact'
+base_dev_dir: '/home/torch_1_13_1_docker/interact'
 
 
 Training:
@@ -91,6 +91,22 @@ hh_models:
     conditional_forecaster: false
 
 hr_models: 
+  newly_trained:
+    _target_: interact.model.Models.IntentInformedHRForecaster
+    one_hist: false
+    conditional_forecaster: true
+    bob_joints_list: [7, 8]
+    bob_joints_num: 2
+    d_word_vec: 128
+    d_model: 128
+    d_inner: 1024
+    n_layers: 3
+    n_head: 8
+    d_k: 64
+    d_v: 64
+    robot_joints_list: [6, 8]
+    align_rep: true
+
   InteRACT-Align:
     _target_: interact.model.Models.IntentInformedHRForecaster
     one_hist: false

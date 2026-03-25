@@ -1,4 +1,4 @@
-base_dev_dir: '/share/portal/kk837/interact/'
+base_dev_dir: '/home/torch_1_13_1_docker/interact'
 
 amass_dir: '${base_dev_dir}/data/amass/'
 body_models_dir: '${base_dev_dir}/body_models/smpl_skeleton.npz'

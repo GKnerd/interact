@@ -1,44 +1,59 @@
-# Changes in the Fork
+# Replication Guide: InteRACT Environment
 
-The original repository does not provide a Dockerfile to replicate the code. From the `requirements.txt` and the `README.md` the original code was built with these system dependencies:
+This guide outlines the steps to replicate the environment for the InteRACT project. Since the original repository does not provide a Dockerfile, this fork introduces a containerized workflow to ensure version consistency, dependency isolation, and GPU compatibility.
 
-```
-python == 3.8.16 
+---
 
-torch == 1.10.0+cu113
+## Prerequisites
 
-nvidia-cublas-cu11==11.10.3.66
-nvidia-cuda-cupti-cu11==11.7.101
-nvidia-cuda-nvrtc-cu11==11.7.99
-nvidia-cuda-runtime-cu11==11.7.99
-nvidia-cudnn-cu11==8.5.0.96
-nvidia-cufft-cu11==10.9.0.58
-nvidia-curand-cu11==10.2.10.91
-nvidia-cusolver-cu11==11.4.0.1
-nvidia-cusparse-cu11==11.7.4.91
-nvidia-nccl-cu11==2.14.3
-nvidia-nvtx-cu11==11.7.91
-```
-i.e. python version 3.8.16, CUDA version of 11.7.99 and torch version of 1.10.0
+Before building the image, ensure your host machine has the following installed:
+1.  **Docker Engine** (v20.10+)
+2.  **NVIDIA Container Toolkit:** This is strictly required for the container to "talk" to the host GPU. Without it, the environment will default to CPU-only and the code will fail.
 
-The repository link`https://github.com/cnstark/pytorch-docker` provides different images with prebuilt OS, python, pytorch and CUDA versions. 
-The image `cnstark/pytorch:1.13.1-py3.8.16-cuda11.7.1-devel-ubuntu20.04` is used as a baseline to create an isolated docker container. It is the closest to the needed requirements. Of course you need the NVIDIA Container Toolit installed locally to be able to talk to the GPU. This will otherwise fail.
+## Environment Requirements
 
-The image needs to be installed locally via: 
+The original project was developed using **Python 3.8.16** and **PyTorch 1.10.0**. Analysis of the `requirements.txt` and `README.md` indicates that the system was built against the following CUDA 11.7/11.3 stack:
+
+* **Python:** `3.8.16`
+* **PyTorch:** `1.10.0+cu113`
+* **NVIDIA CUDA/cuDNN:** ~11.7.x (specified via `nvidia-*-cu11` wheels)
+
+## Docker Base Image
+
+To simplify the setup, we utilize a pre-configured image from the [cnstark/pytorch-docker](https://github.com/cnstark/pytorch-docker) repository. This provides a stable, high-performance baseline for the OS, Python, and CUDA layers.
+
+The chosen image is:
+`cnstark/pytorch:1.13.1-py3.8.16-cuda11.7.1-devel-ubuntu20.04`
+
+> **Note:** This is the closest stable match to the original project's requirements. While it defaults to PyTorch 1.13.1, it maintains the exact Python and CUDA versions required for modern hardware (e.g., NVIDIA RTX 40-series GPUs).
+
+## Setup Instructions
+
+### Step 1: Pull the Base Image
+Download the base image to your local machine to speed up the build process:
 
 ```bash
 docker pull cnstark/pytorch:1.13.1-py3.8.16-cuda11.7.1-devel-ubuntu20.04
 ```
 
-After that you can use **from the root** your working directory the command: 
+### Step 2: Build the Image
+From the **project root** directory, execute the build script. This script configures a local user (matching your host UID/GID), installs system-level dependencies (like cmake and git), and sets up the Python environment:
+
 ```bash
 ./.docker/build_image.sh
 ```
-to build the image and from the root again use, 
+
+### Step 3: Run the Container
+Launch the interactive environment from the project root:
 
 ```bash
 ./.docker/run_container.sh
 ```
-to run the container. 
 
-Disclaimer: You might need to modify the data directories mounted to your container, other than that you should be good to go.
+## Important Considerations
+
+- Data Mounts: You must modify the volume mappings in .docker/run_container.sh to point to your local directories for AMASS datasets and SMPL body models.
+
+- User Permissions: The build script automatically maps your host UID and GID to the internal torch_1_13_1_docker user. This ensures that any files created by the container (like logs or checkpoints) are owned by you on the host machine.
+
+- Dependencies: The Dockerfile automatically handles the removal of conflicting nvidia- and torch lines from requirements.txt to ensure the container's optimized drivers remain intact.

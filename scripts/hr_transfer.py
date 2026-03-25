@@ -50,7 +50,7 @@ def get_dataloader(split='train', batch_size=256, include_amass=True, include_CM
                 shuffle=True if split == 'train' else False)
     return dataloader
 
-def log_metrics(dataloader, split, writer, epoch):
+def log_metrics(dataloader, split, writer, epoch, model, device, cfg):
     total_loss, total_mpjpe, total_alignment_loss, n=0, 0, 0, 0
     model.eval()
     with torch.no_grad():

@@ -44,8 +44,16 @@ RUN mkdir -p /home/${USERNAME}/interact/
 ##############################################################################
 
 WORKDIR /home/${USERNAME}/
-COPY --chown=${USERNAME} requirements.txt setup.py ./
+COPY --chown=${USERNAME} requirements.txt ./
+
 
 RUN sed -i '/nvidia-/d' requirements.txt && \
     sed -i '/torch/d' requirements.txt && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir torch-dct
+
+RUN rm requirements.txt
+
+WORKDIR /home/${USERNAME}/interact
+CMD ["/bin/bash"]

@@ -1,5 +1,5 @@
 import os
-import pathlib
+from pathlib import Path
 import numpy as np
 import torch
 import random
@@ -11,7 +11,7 @@ from omegaconf import DictConfig
 
 @hydra.main(config_path="../config", config_name="synthetic_creation")
 def process_data(cfg: DictConfig):
-    path_to_data = cfg.amass_dir
+    path_to_data = Path(cfg.amass_dir)
 
     skel = np.load(cfg.body_models_dir)
     p3d0 = torch.from_numpy(skel['p3d0']).float()
@@ -36,50 +36,72 @@ def process_data(cfg: DictConfig):
 
         lengths = []
         print("IN SPLIT = ", split)
+        # for ds in amass_splits[split]:
+        #     if not os.path.isdir(path_to_data + '/' + ds + '/'):
+        #         continue
+        #     print('>>> loading {}'.format(ds))
+        
         for ds in amass_splits[split]:
-            if not os.path.isdir(path_to_data + '/' + ds + '/'):
+            ds_path = path_to_data / ds
+            if not ds_path.is_dir():
                 continue
             print('>>> loading {}'.format(ds))
 
-            for sub in os.listdir(path_to_data + '/' + ds + '/'):
-                if not os.path.isdir(path_to_data + '/' + ds + '/' + sub):
+            # .rglob('**/*.npz') searches recursively through ALL sub-folders
+            for npz_file in ds_path.rglob('**/*.npz'):
+                
+                # Keep filename tracking as a string
+                file_str_path = str(npz_file)
+                alice_filenames.append(file_str_path)
+
+                try:
+                    # np.load accepts pathlib objects directly!
+                    pose_all = np.load(npz_file)
+                    poses = pose_all['poses']
+                except Exception as e:
+                    # Updated print statement since 'sub' and 'act' are no longer used
+                    print(f'no poses at {npz_file.name}: {e}')
                     continue
-                for act in os.listdir(path_to_data + '/' + ds + '/' + sub):
-                    if not act.endswith('.npz'):
-                        continue
 
-                    alice_filenames.append(path_to_data + '/' + ds + '/' + sub + '/' + act)
+            # for sub in os.listdir(path_to_data + '/' + ds + '/'):
+            #     if not os.path.isdir(path_to_data + '/' + ds + '/' + sub):
+            #         continue
+            #     for act in os.listdir(path_to_data + '/' + ds + '/' + sub):
+            #         if not act.endswith('.npz'):
+            #             continue
 
-                    pose_all = np.load(path_to_data + '/' + ds + '/' + sub + '/' + act)
-                    try:
-                        poses = pose_all['poses']
-                    except:
-                        print('no poses at {}_{}_{}'.format(ds, sub, act))
-                        continue
-                    trans = pose_all['trans']
-                    frame_rate = pose_all['mocap_framerate']
-                    fn = poses.shape[0]
-                    sample_rate = int(frame_rate // 15)
-                    fidxs = range(0, fn, sample_rate)
-                    fn = len(fidxs)
+                    # alice_filenames.append(path_to_data + '/' + ds + '/' + sub + '/' + act)
 
-                    poses = poses[fidxs]
-                    trans = trans[fidxs]
-                    poses = torch.from_numpy(poses).float()
-                    poses = poses.reshape([fn, -1, 3])
-                    trans = torch.from_numpy(trans).float()
-                    
-                    global_orient = poses[:, :1]
-                    rot_matrix = rodrigues(global_orient)
-                    trans_rot = torch.matmul(trans.unsqueeze(1),rot_matrix)
+                    # pose_all = np.load(path_to_data + '/' + ds + '/' + sub + '/' + act)
+                    # try:
+                    #     poses = pose_all['poses']
+                    # except:
+                    #     print('no poses at {}_{}_{}'.format(ds, sub, act))
+                    #     continue
+                trans = pose_all['trans']
+                frame_rate = pose_all['mocap_framerate']
+                fn = poses.shape[0]
+                sample_rate = int(frame_rate // 15)
+                fidxs = range(0, fn, sample_rate)
+                fn = len(fidxs)
 
-                    poses[:, 0] = 0
-                    p3d0_tmp = p3d0.repeat([fn, 1, 1])
-                    p3d_human = ang2joint(p3d0_tmp, poses, parent)
-                    
-                    p3d_human += trans_rot
-                    alice_poses.append(p3d_human.numpy())
-                    lengths.append(p3d_human.shape[0])
+                poses = poses[fidxs]
+                trans = trans[fidxs]
+                poses = torch.from_numpy(poses).float()
+                poses = poses.reshape([fn, -1, 3])
+                trans = torch.from_numpy(trans).float()
+                
+                global_orient = poses[:, :1]
+                rot_matrix = rodrigues(global_orient)
+                trans_rot = torch.matmul(trans.unsqueeze(1),rot_matrix)
+
+                poses[:, 0] = 0
+                p3d0_tmp = p3d0.repeat([fn, 1, 1])
+                p3d_human = ang2joint(p3d0_tmp, poses, parent)
+                
+                p3d_human += trans_rot
+                alice_poses.append(p3d_human.numpy())
+                lengths.append(p3d_human.shape[0])
 
         max_length = np.max(np.array(lengths))
         bob_poses = []
@@ -98,7 +120,7 @@ def process_data(cfg: DictConfig):
                     bob_poses.append(alice_pose)
                     bob_not_found = False
 
-        pathlib.Path(f'{cfg.save_dir}/{split}').mkdir(parents=True, exist_ok=True)
+        Path(f'{cfg.save_dir}/{split}').mkdir(parents=True, exist_ok=True)
         for idx, (alice_pose, bob_pose) in enumerate(zip(alice_poses, bob_poses)):
             ### TODD: Do some transformation and combine so there is no close interaction
             # import pdb; pdb.set_trace()
