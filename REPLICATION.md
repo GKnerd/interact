@@ -25,7 +25,18 @@ To simplify the setup, we utilize a pre-configured image from the [cnstark/pytor
 The chosen image is:
 `cnstark/pytorch:1.13.1-py3.8.16-cuda11.7.1-devel-ubuntu20.04`
 
-> **Note:** This is the closest stable match to the original project's requirements. While it defaults to PyTorch 1.13.1, it maintains the exact Python and CUDA versions required for modern hardware (e.g., NVIDIA RTX 40-series GPUs).
+> **Note 1:** This is the closest stable match to the original project's requirements. While it defaults to PyTorch 1.13.1, it maintains the exact Python and CUDA versions used in the original project.
+
+> **Note 2:** Hardware-Specific Adaptation (RTX 40-Series & Newer GPUs):
+Newer GPU architectures, specifically NVIDIA RTX 40-series (Ada Lovelace), strictly require CUDA 11.8 or higher. Attempting to run the default 11.7 environment on these modern GPUs will result in fatal `cuFFT` errors during training. To ensure cross-hardware compatibility, we inject a modern PyTorch ecosystem (2.4.1+cu118) using the following command:
+
+```bash
+pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 --upgrade
+```
+Why this approach? 
+This method allows us to provide modern GPU support while strictly preserving the legacy Python 3.8.16 foundation. By upgrading only the PyTorch/CUDA binaries, we prevent cascading dependency failures in the  codebase.
+
+>**Warning**: Downloading and bundling these updated CUDA 11.8 wheels during the build process does result in a slightly larger final Docker image.
 
 ## Setup Instructions
 

@@ -14,11 +14,6 @@ RUN apt-get update && apt-get install -y \
     git \
     cmake \
     sudo \
-    # libgl1-mesa-glx \
-    # libosmesa6-dev \
-    # freeglut3-dev \
-    # libgles2-mesa-dev \
-    # libibverbs-dev \
     && rm -rf /var/lib/apt/lists/*
 
 ##############################################################################
@@ -46,14 +41,12 @@ RUN mkdir -p /home/${USERNAME}/interact/
 WORKDIR /home/${USERNAME}/
 COPY --chown=${USERNAME} requirements.txt ./
 
-
+# Upgrade the torch version to 2.4.1 and CUDA to 11.8.
 RUN sed -i '/nvidia-/d' requirements.txt && \
     sed -i '/torch/d' requirements.txt && \
-    pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir torch-dct
+    pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 --upgrade && \
+    pip install --no-cache-dir torch-dct && \
+    rm requirements.txt
 
-RUN rm requirements.txt
-
-WORKDIR /home/${USERNAME}/interact
 CMD ["/bin/bash"]
