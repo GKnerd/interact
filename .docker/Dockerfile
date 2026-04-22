@@ -41,12 +41,5 @@ RUN mkdir -p /home/${USERNAME}/interact/
 WORKDIR /home/${USERNAME}/
 COPY --chown=${USERNAME} requirements.txt ./
 
-# Upgrade the torch version to 2.4.1 and CUDA to 11.8.
-RUN sed -i '/nvidia-/d' requirements.txt && \
-    sed -i '/torch/d' requirements.txt && \
-    pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 --upgrade && \
-    pip install --no-cache-dir torch-dct && \
-    rm requirements.txt
 
 CMD ["/bin/bash"]
