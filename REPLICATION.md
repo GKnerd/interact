@@ -64,7 +64,6 @@ Launch the interactive environment from the project root:
 ## Important Considerations
 
 - Data Mounts: You must modify the volume mappings in .docker/run_container.sh to point to your local directories for AMASS datasets and SMPL body models.
-
-- User Permissions: The build script automatically maps your host UID and GID to the internal torch_1_13_1_docker user. This ensures that any files created by the container (like logs or checkpoints) are owned by you on the host machine.
-
 - Dependencies: The Dockerfile automatically handles the removal of conflicting nvidia- and torch lines from requirements.txt to ensure the container's optimized drivers remain intact.
+
+
