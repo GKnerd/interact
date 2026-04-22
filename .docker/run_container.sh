@@ -14,7 +14,7 @@ docker run --name hpi_interact \
     -v /dev:/dev \
     -v $(pwd):/home/torch_1_13_1_docker/interact/ \
     -v /home/georgios-katranis/Projects/datasets/raw:/home/torch_1_13_1_docker/interact/data \
-    -p 6006:6006 \
+    -p 6007:6007 \
     --net host \
     --rm \
     --ipc host \
