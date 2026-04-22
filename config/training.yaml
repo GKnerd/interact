@@ -1,4 +1,4 @@
-base_dev_dir: '/home/torch_1_13_1_docker/interact'
+base_dev_dir: '/home/torch_orin_docker/interact'
 
 
 Training:

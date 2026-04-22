@@ -10,4 +10,4 @@ docker build \
     --build-arg GID="$gid" \
     --network host \
     -f ./.docker/Dockerfile \
-    -t hpi_interact/py:3_8_16 .
+    -t hpi_interact/jetson_orin .
