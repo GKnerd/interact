@@ -2,20 +2,25 @@
 Build InterACT models from the package configs and run their forecasts.
 
 All forecast functions take and return joint positions of shape (B, T, J, 3) in the frame of
-the training data. Centring and the offset back are done here, so training and deployment use
+the training data. 
+
+B := Batch: How many independent windows are forecast in one call.
+T := Frames over time.
+J := Joints in the config's 'joint_names' order
+3 := x,y,z position of the joints
+
+Centring and the offset back are done here, so training and deployment use
 the same steps.
 """
+
 from importlib.resources import files
 
 import torch
 import yaml
 
+from interact.constants import MODEL_CLASS_NAMES, ROBOT_CENTRE
+from interact.model import Models
 from interact.model.Models import IntentInformedForecaster, IntentInformedHRForecaster
-
-MODEL_CLASSES = {
-    'IntentInformedForecaster': IntentInformedForecaster,
-    'IntentInformedHRForecaster': IntentInformedHRForecaster,
-}
 
 
 def load_config(name: str) -> dict:
@@ -39,7 +44,10 @@ def build_model(
     :param device: Device the model is moved to.
     :return: The model in eval mode.
     """
-    model = MODEL_CLASSES[config['model_class']](**config['model'], device=device).to(device)
+    name = config['model_class']
+    if name not in MODEL_CLASS_NAMES:
+        raise ValueError(f'unknown model_class {name!r}')
+    model = getattr(Models, name)(**config['model'], device=device).to(device)
     if weights_path is not None:
         state = torch.load(weights_path, map_location=device, weights_only=True)
         model.load_state_dict(state)
@@ -125,7 +133,7 @@ def human_robot_conditional_forecast(
     if not isinstance(model, IntentInformedHRForecaster):
         raise ValueError(f'expected IntentInformedHRForecaster, got {type(model).__name__}')
     alice, offset = _centre(history)
-    robot_offset = offset[:, :, -6:]
+    robot_offset = offset[:, :, ROBOT_CENTRE]
     robot_hist = _flatten(robot_history, robot_offset)
     robot_fut = _flatten(robot_future, robot_offset)
     forecast, _ = model.forward_inference(alice, None, None, robot_hist, robot_fut)
