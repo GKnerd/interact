@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "interact"
+version = "0.1.0"
+description = "InterACT human motion forecasting models"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.4",
+    "numpy>=1.24",
+    "torch-dct>=0.1.6",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+train = [
+    "hydra-core>=1.3.2",
+    "matplotlib",
+    "tqdm",
+    "tensorboard",
+]
+
+[tool.setuptools.packages.find]
+include = ["interact*"]
+
+[tool.setuptools.package-data]
+interact = ["config/*.yaml"]
