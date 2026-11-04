@@ -65,7 +65,7 @@ def log_metrics(dataloader, split, writer, epoch, model, device):
     print(f"{split} loss after epoch {epoch+1} = ", total_loss.item()/n)
     writer.add_scalar(f'{split}/mpjpe', total_loss.item()/n, epoch+1)
 
-@hydra.main(config_path="../config", config_name="training")
+@hydra.main(version_base=None, config_path="../config", config_name="training")
 def main(cfg: DictConfig) -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"!!! TRAINING ON: {device.upper()} !!!")

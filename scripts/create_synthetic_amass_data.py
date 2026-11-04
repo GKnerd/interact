@@ -9,7 +9,7 @@ import copy
 import hydra
 from omegaconf import DictConfig
 
-@hydra.main(config_path="../config", config_name="synthetic_creation")
+@hydra.main(version_base=None, config_path="../config", config_name="synthetic_creation")
 def process_data(cfg: DictConfig):
     path_to_data = Path(cfg.amass_dir)
 

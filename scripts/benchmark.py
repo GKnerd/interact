@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, ConcatDataset
 from interact.utils.comad_hr import CoMaD_HR
 from interact.utils.loss_funcs import mpjpe_loss, fde_error, perjoint_error, perjoint_fde
 
-@hydra.main(config_path="../config", config_name="eval")
+@hydra.main(version_base=None, config_path="../config", config_name="eval")
 def main(cfg: DictConfig):
     dataset_map = {
         'cabinet': lambda: CoMaD_HR(split='test'),

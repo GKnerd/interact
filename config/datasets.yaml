@@ -1,13 +1,11 @@
-base_dev_dir: '/home/torch_1_13_1_docker/interact'
-
-data_dir: '${base_dev_dir}/data'
+data_dir: '${oc.env:HOME}/data'
 
 cmu_mocap: '${data_dir}/cmu_mocap'
 comad: '${data_dir}/comad_data'
 comad_hr: '${data_dir}/comad_data'
 synthetic_amass: '${data_dir}/synthetic_amass'
 
-mapping_dir: '${base_dev_dir}/mapping'
+mapping_dir: '${oc.env:HOME}/interact/mapping'
 
 mocap_mapping: '${mapping_dir}/mocap_mapping.json'
 comad_mapping: '${mapping_dir}/comad_mapping.json'

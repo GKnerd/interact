@@ -1,5 +1,3 @@
-base_dev_dir: '/home/torch_1_13_1_docker/interact'
-
 hh_eval:
   eval_data: handover
     # choices: [cmu, handover, react_stir, table_set]
@@ -8,7 +6,7 @@ hh_eval:
 
   batch_size: 256
 
-  checkpoint_dir: '${base_dev_dir}/interact/checkpoints/HH_checkpoints'
+  checkpoint_dir: '${oc.env:HOME}/interact/interact/trained_models_cornell/HH_checkpoints'
 
 hr_eval:
   eval_data: cabinet
@@ -18,5 +16,8 @@ hr_eval:
 
   batch_size: 256
 
-  checkpoint_dir: '${base_dev_dir}/interact/checkpoints/HR_checkpoints'
+  checkpoint_dir: '${oc.env:HOME}/interact/interact/trained_models_cornell/HR_checkpoints'
 
+hydra:
+  run:
+    dir: '${oc.env:HOME}/outputs/hydra/${now:%Y-%m-%d}/${now:%H-%M-%S}'

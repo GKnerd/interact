@@ -64,7 +64,7 @@ def test_poses_generator(test_dataloader, model, device):
 # ==========================================
 # 3. THE MAIN SCRIPT
 # ==========================================
-@hydra.main(config_path="../config", config_name="training")
+@hydra.main(version_base=None, config_path="../config", config_name="training")
 def main(cfg: DictConfig):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 

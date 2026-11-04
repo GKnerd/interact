@@ -13,7 +13,7 @@ from interact.utils.loss_funcs import mpjpe_loss, fde_error, perjoint_error, per
 from interact.utils.arg_parser import get_parser
 import hydra
 
-@hydra.main(config_path="../config", config_name="eval")
+@hydra.main(version_base=None, config_path="../config", config_name="eval")
 def main(cfg):
     dataset_map = {
         'cmu': lambda: CMU_Mocap(split='test'),
