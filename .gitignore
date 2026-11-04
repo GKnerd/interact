@@ -18,4 +18,14 @@ hr/
 hr_new/
 new_hr_old/
 outputs/
-logs/
+log/
+
+# Claude
+.claude_container
+
+# Body Models Folder
+body_models/
+
+# Pytest
+.pytest_cache
+

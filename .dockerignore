@@ -1,5 +1,5 @@
 # Ignore the docker folder
-.docker
+docker/
 
 # Ignore conda config
 *.yml
@@ -23,3 +23,13 @@ venv/
 build/
 dist/
 *.egg-info/
+
+# Ignore weights, data and run outputs; the image holds code only
+interact/checkpoints/
+interact/trained_models_cornell/
+data/
+outputs/
+logs/
+
+# Ignore Claude
+.claude_container
