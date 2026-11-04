@@ -1,0 +1,24 @@
+# Cornell HR InteRACT-Align: forecasts one person, conditioned on the robot's planned future.
+model_class: IntentInformedHRForecaster
+model:
+  d_word_vec: 128
+  d_model: 128
+  d_inner: 1024
+  n_layers: 3
+  n_head: 8
+  d_k: 64
+  d_v: 64
+  one_hist: false
+  conditional_forecaster: true
+  bob_joints_list: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+  bob_joints_num: 9
+  robot_joints_list: [6, 8]
+  align_rep: true
+joint_names: [neck, left_shoulder, right_shoulder, left_elbow, right_elbow,
+              left_wrist, right_wrist, left_pinky1, right_pinky1]
+parents: [-1, 0, 0, 1, 2, 3, 4, 5, 6]
+up_axis: y
+rate_hz: 15
+history_len: 15
+horizon_len: 15
+num_persons: 1
