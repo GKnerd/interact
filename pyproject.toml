@@ -22,6 +22,9 @@ train = [
     "tqdm",
     "tensorboard",
 ]
+test = [
+    "pytest",
+]
 
 [tool.setuptools.packages.find]
 include = ["interact*"]
