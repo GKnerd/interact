@@ -111,7 +111,7 @@ def main(cfg: DictConfig):
         {"params": model.parameters(), "lr": cfg.Training.lr_ft}
     ]
 
-    optimizer = optim.Adam(params,cfg.Training.weight_decay)
+    optimizer = optim.Adam(params, weight_decay=cfg.Training.weight_decay)
 
     directory = f'{cfg.Training.hr_training.output_dir}/{model_id}'
     pathlib.Path(directory).mkdir(parents=True, exist_ok=True)
