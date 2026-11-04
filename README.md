@@ -22,6 +22,48 @@ Follow these steps to install `InteRACT`:
    pip install -e . 
    ```
 
+## Use as a package
+
+The model code installs as the package `interact`. Running the models needs only `torch`, `numpy`, `torch-dct` and `pyyaml`; training and visualisation need the `train` extra.
+
+```bash
+pip install git+https://github.com/GKnerd/interact.git@<tag>   # models only
+pip install -e .[train]                                         # development and training
+```
+
+Each released checkpoint has a config in `interact/config/<name>.yaml`:
+
+| Config | Checkpoint | Forecast function |
+|---|---|---|
+| `marginal` | HH Marginal | `marginal_forecast(model, history)` |
+| `marginal_2hist` | HH Marginal-2Hist | `human_human_marginal_forecast(model, history, partner_history)` |
+| `interact_hh` | HH InteRACT | `human_human_conditional_forecast(model, history, partner_history, partner_future)` |
+| `interact_align_hr` | HR InteRACT-Align | `human_robot_conditional_forecast(model, history, robot_history, robot_future)` |
+
+```python
+from interact import build_model, load_config, marginal_forecast
+
+config = load_config('marginal')
+model = build_model(config, weights_path='Marginal/30.model', device='cuda')
+forecast = marginal_forecast(model, history)
+```
+
+- `build_model(config, weights_path=None, device='cpu')` builds the model, loads the weights strictly with `weights_only=True` and returns it in eval mode. Without `weights_path` the weights stay untrained.
+- The forecast functions take `history` as (B, 15, 9, 3) joint positions in metres and return (B, 15, 9, 3) in the same frame. Partners are (B, T, 9, 3), robot points (B, T, 2, 3); of a future only the last frame is used. Centring on the last history frame and the offset back are done inside.
+- Inputs must be in the frame of the training data (`up_axis` in the config) and on the model's device.
+
+Config keys:
+
+| Key | Meaning |
+|---|---|
+| `model_class`, `model` | Model class and its constructor arguments |
+| `joint_names` | SMPL-H names of the 9 joints, in the model's order |
+| `parents` | Index into `joint_names`, -1 = root |
+| `up_axis` | Up axis of the training data |
+| `rate_hz` | Frame rate |
+| `history_len`, `horizon_len` | Input and forecast frames |
+| `num_persons` | Persons the model takes as input |
+
 ## Preliminaries
 
 1. Set the `base_dev_dir` to your working directory in all of the config files
