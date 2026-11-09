@@ -1,0 +1,68 @@
+##############################################################################
+##                                 Base Image                               ##
+##############################################################################
+# Jetson Orin (L4T r36.4, JetPack 6): Ubuntu 22.04, Python 3.10, CUDA 12.6, cuDNN 9.
+# python:3.12-slim with the upstream cu130 wheel finds no GPU on the Orin, and the
+# Jetson wheel of torch 2.11.0 exists for Python 3.10 only.
+# Taken from https://github.com/dusty-nv/jetson-containers (last access 22.04.2026)
+FROM dustynv/l4t-pytorch:r36.4.0
+
+# The base image points pip at an index that no longer resolves; use PyPI by default.
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_INDEX_URL=https://pypi.org/simple \
+    MPLBACKEND=Agg
+RUN rm -f /etc/pip.conf
+
+##############################################################################
+##                                 cuDSS                                    ##
+##############################################################################
+# The Jetson wheel of torch 2.11.0 links against libcudss.so.0, which the base
+# image does not ship.
+ARG CUDSS_VERSION=0.7.1
+RUN wget -q -O /tmp/cudss.deb \
+        https://developer.download.nvidia.com/compute/cudss/${CUDSS_VERSION}/local_installers/cudss-local-tegra-repo-ubuntu2204-${CUDSS_VERSION}_${CUDSS_VERSION}-1_arm64.deb \
+    && dpkg -i /tmp/cudss.deb \
+    && cp /var/cudss-local-tegra-repo-ubuntu2204-${CUDSS_VERSION}/cudss-*-keyring.gpg /usr/share/keyrings/ \
+    && apt-get update \
+    && apt-get install -y cudss \
+    && ldconfig \
+    && rm -rf /tmp/cudss.deb /var/lib/apt/lists/*
+
+##############################################################################
+##                                 PyTorch                                  ##
+##############################################################################
+# Same versions as the deployment image (docker/Dockerfile), built for L4T / CUDA 12.6.
+# torchvision and torchaudio of the base image are built for torch 2.4 and are not used.
+RUN pip uninstall -y torchvision torchaudio \
+    && pip install --index-url https://pypi.jetson-ai-lab.io/jp6/cu126 torch==2.11.0 \
+    && pip install numpy==1.26.4 torch-dct==0.1.6
+
+##############################################################################
+##                                 Create User                              ##
+##############################################################################
+ARG USERNAME=interact
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+# Delete the user if the UID already exists in the base image.
+# The video group gives the user access to the GPU devices of the Jetson.
+RUN if id -u $USER_UID ; then userdel `id -un $USER_UID` ; fi \
+    && groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    && usermod -aG video $USERNAME
+
+##############################################################################
+##                                 interact                                 ##
+##############################################################################
+# Installed editable; run_container.sh mounts the repo over /home/<user>/interact,
+# so the container always runs the current code. Dependency changes need a rebuild.
+COPY pyproject.toml README.md /home/${USERNAME}/interact/
+COPY interact /home/${USERNAME}/interact/interact
+RUN pip install -e "/home/${USERNAME}/interact[train,test]" numpy==1.26.4
+
+USER ${USERNAME}
+WORKDIR /home/${USERNAME}/interact
+
+CMD ["/bin/bash"]
