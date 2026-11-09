@@ -3,7 +3,7 @@
 
 PACKAGE_NAME="interact"
 CONTAINER_USER="interact"
-IMAGE="$PACKAGE_NAME/py:3_12_$(uname -m)"
+IMAGE="$PACKAGE_NAME/train:$(uname -m)"
 
 uid=$(eval "id -u")
 gid=$(eval "id -g")
@@ -33,10 +33,14 @@ else
     exit 1
 fi
 
+# One Dockerfile per architecture: Dockerfile.x86_64, Dockerfile.aarch64 (Jetson Orin, L4T)
+DOCKERFILE="./docker/Dockerfile.$(uname -m)"
+echo -e "${GREEN_BOLD}Building $IMAGE from $DOCKERFILE${RESET}"
+
 docker build \
     --build-arg USER_UID="$uid" \
     --build-arg USER_GID="$gid" \
     --build-arg USER="$CONTAINER_USER" \
     --network host \
-    -f ./docker/Dockerfile \
+    -f "$DOCKERFILE" \
     -t $IMAGE .

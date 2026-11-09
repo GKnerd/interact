@@ -2,8 +2,8 @@
 ##                                 Base Image                               ##
 ##############################################################################
 # Jetson Orin (L4T r36.4, JetPack 6): Ubuntu 22.04, Python 3.10, CUDA 12.6, cuDNN 9.
-# python:3.12-slim with the upstream cu130 wheel finds no GPU on the Orin, and the
-# Jetson wheel of torch 2.11.0 exists for Python 3.10 only.
+# The Jetson wheel of torch 2.11.0 exists for Python 3.10 only, so this image uses
+# the L4T base instead of python:3.12-slim.
 # Taken from https://github.com/dusty-nv/jetson-containers (last access 22.04.2026)
 FROM dustynv/l4t-pytorch:r36.4.0
 
@@ -33,7 +33,7 @@ RUN wget -q -O /tmp/cudss.deb \
 ##############################################################################
 ##                                 PyTorch                                  ##
 ##############################################################################
-# Same versions as the deployment image (docker/Dockerfile), built for L4T / CUDA 12.6.
+# Same versions as docker/Dockerfile.x86_64, built for L4T / CUDA 12.6.
 # torchvision and torchaudio of the base image are built for torch 2.4 and are not used.
 RUN pip uninstall -y torchvision torchaudio \
     && pip install --index-url https://pypi.jetson-ai-lab.io/jp6/cu126 torch==2.11.0 \

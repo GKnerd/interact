@@ -15,7 +15,8 @@ motion, optionally conditioned on a second agent (human or robot). Remote `origi
   `interact/config/`, not from this file.
 
 ## Rules
-- The model code runs unchanged with the deployment versions. `docker/Dockerfile` pins the same.
+- The model code runs unchanged with the deployment versions. `docker/Dockerfile.x86_64` and
+  `docker/Dockerfile.aarch64` (Jetson Orin) pin the same torch and numpy.
   The package declares lower bounds only, never pins torch, and keeps working with numpy 1.26.
 - Importing `interact` never imports training-only packages (hydra, matplotlib, tqdm,
   tensorboard).

@@ -2,7 +2,7 @@
 
 PACKAGE_NAME="interact"
 CONTAINER_USER="interact"
-IMAGE="$PACKAGE_NAME/py:3_12_$(uname -m)"
+IMAGE="$PACKAGE_NAME/train:$(uname -m)"
 
 uid=$(eval "id -u")
 gid=$(eval "id -g")
