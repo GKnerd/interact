@@ -170,3 +170,141 @@ In `IntentInformedHRForecaster`, `conditional_forecaster: false` only zeroes Bob
 5. **One windowed dataset over sequences.** A small reader per source (AMASS, CMU, CoMaD H-H, CoMaD H-R, later your own SMPL-H data) returns whole sequences (T, J, 3) at 15 Hz. One class cuts the windows and optionally flips Alice and Bob.
    - Room for ADDITIONAL_IMPROVEMENTS: the random rotation about the vertical axis (heading option A) becomes one transform in that class, and your own dataset becomes one more reader.
    - Optional: cache the parsed JSON once as `.npz` to cut start-up time.
+
+## Findings 2
+
+Scan of the training code and of the data on the Jetson Orin (`~/datasets`), 12-11-2026. Nothing above was changed. Statements above that these findings contradict are listed under "Contradictions with the sections above".
+
+#### 8. Frame rate of the synthetic AMASS data
+
+`scripts/create_synthetic_amass_data.py:84` takes every `int(frame_rate // 15)`-th frame. This gives 15 Hz only when the source rate is a multiple of 15.
+
+| Source rate | Step | Resulting rate | Train datasets |
+|---|---|---|---|
+| 120 Hz | 8 | 15 Hz | CMU (most), Eyes_Japan_Dataset, ACCAD, MPI_Limits |
+| 60 Hz | 4 | 15 Hz | CMU (some) |
+| 100 Hz | 6 | 16.7 Hz | KIT, EKUT |
+| 250 Hz | 16 | 15.6 Hz | Eyes_Japan_Dataset (one file in the sample) |
+
+- Train files per dataset: KIT 4232, CMU 2088, Eyes_Japan_Dataset 750, EKUT 349, ACCAD 246, MPI_Limits 35. KIT and EKUT are 4581 of 7700 files (59%).
+- The loader reads all files as 15 Hz. A 16.7 Hz sequence read as 15 Hz moves 10% less per frame, and its 15-frame horizon covers 0.9 s instead of 1.0 s.
+- The line is from the upstream commit 05ec26e, so Cornell's pretraining data had the same mix if it was created with this script and these datasets.
+- The CoMaD and CMU-Mocap loaders are not affected (120 Hz, step 8).
+- Status: the step is read from the code; the source rates are measured on about 26 files per dataset (`mocap_framerate`), not on all files.
+
+#### 9. Validation
+
+Validation cannot be switched on by uncommenting the existing calls.
+
+- CoMaD has no `val` folder, only `train` and `test`. `CoMaD(split='val')` and `CoMaD_HR(split='val')` fail when they list the folder.
+- CoMaD episodes: train 385 H-H and 249 H-R, test 93 H-H and 55 H-R.
+- Synthetic AMASS val is 44 files (SFU), 13,725 frames, 12,405 windows. The test split (3061 files, BioMotionLab_NTroje) is read by no script.
+- `log_metrics` in `scripts/hr_transfer.py:53`:
+  - reads `cfg.align_rep` and `cfg.align_weight`, which do not exist (the values are `model_config.align_rep` and `cfg.Training.align_weight`);
+  - centres Bob's 6 values with the 27-value offset, a third variant next to `hr_transfer` (training) and `eval_hr`.
+- The commented calls in all three scripts pass four arguments; the functions take six or seven.
+- Windows of one episode overlap in 29 of 30 frames, so a validation split has to be made by episode, not by window.
+
+#### 10. Data loading cost
+
+- The synthetic AMASS train split is 7700 JSON files, 21 GB. The files hold all 52 joints of both persons as indented text; the loaders use 9 joints.
+- Measured on the Orin, val split (196 MB), read the way the loader does: `json.load` 3.3 s, `torch.tensor` 1.3 s, 4.8 s in total. Extrapolated by size to the train split: about 9 minutes at every start.
+- Extrapolated the same way, the train split has about 1.5 million frames and about 1.3 million windows. Each window is four tensor objects, and pretraining copies these lists into 8 DataLoader workers.
+- The 9 joints of both persons as float32 are about 330 MB for the whole train split. This fits into memory as one array; on the Orin, CPU and GPU share that memory.
+- CoMaD is 43 GB on disk, but almost all of it is `video.MP4`; a `data.json` is about 3 MB.
+- The file names of the synthetic data contain the absolute path of the machine that created them (`_home_torch_orin_docker_interact_data_amass_KIT_...`). Source dataset and subject can only be recovered from that name.
+
+#### 11. Logging
+
+- The Hydra log files of the three earlier pretraining runs (`outputs/2026-04-2*/`) are 0 bytes: the scripts use `print`, which Hydra does not capture.
+- Finetuning writes no TensorBoard scalar; `scripts/finetune_intent_forecaster.py:134` is commented out.
+- `scripts/hr_transfer.py:151` logs the alignment loss of the last batch divided by `n`, not the epoch mean (`total_alignment_loss` is summed but not used).
+
+#### 12. Learning-rate schedule and epochs
+
+- `config/training.yaml:15`: milestones `[15, 25, 35, 40]` with `epochs: 30`. The last two never fire.
+- Pretraining and finetuning share the milestones and the one `epochs` value, although AMASS and CoMaD differ in size by orders of magnitude.
+- `hr_transfer.py` creates no scheduler.
+
+#### 13. Bob's joints: training configs and package configs differ
+
+| Where | `bob_joints_list` | `bob_joints_num` |
+|---|---|---|
+| `config/training.yaml`, `hh_models` | `[7, 8]` | 2 |
+| `config/training.yaml`, `hr_models` | `[0, 1]` | 2 |
+| `interact/config/*.yaml` (Cornell checkpoints) | `[0, ..., 8]` | 9 |
+
+- A model trained with the current defaults has a 6-value Bob encoder and fits none of the package configs.
+- In the H-R data Bob has two points (finding 14). `forward` of the HR model indexes Bob with the list in every case, so a 9-joint Bob cannot run through `hr_transfer.py` on this data. How the Cornell HR checkpoints with 9 Bob joints were trained cannot be reproduced with this code and data.
+- The same `hh` submodule needs `[7, 8]` in the H-H stages (hands out of 9 joints) and `[0, 1]` in the H-R stage (the two points that exist). The list describes the layout of the data, not the weights.
+
+#### 14. CoMaD on disk
+
+- Persons: the `metadata.json` files name 14 person IDs in H-H (1–14) and 9 in H-R (1–7, 10, 11).
+- H-R layout (one episode checked, `train/cabinet/HR/1`): `Person_1` (T, 11, 3), `Person_2` (T, 2, 3), `Robot` (T, 12, 3). `comad_hr.py` assigns them by key order and picks hard-coded indices (`[0..6, 9, 10]`, `[0, 1]`, `[10, 11]`). No mapping file names the 11 points, so which body points the H-R models see cannot be read from the repo. The H-R `metadata.json` lists `Person_1` only.
+- Up axis, H-H: the `BackTop` marker, missing frames excluded, has a mean y of 1.34–1.62 m in 5 episodes (10 tracks), while x and z vary with the position in the room. CoMaD H-H is y-up.
+- Up axis, H-R (same episode, raw): point 0 of `Person_1` has a mean z of 1.43 m and a mean y of 2.39 m. This fits z-up raw data.
+- Missing markers: in `train/cabinet/HH/0`, 17% (`Person_1`) and 13% (`Person_2`) of all marker samples are zero. The loader drops every window in which one of the 9 used markers is missing in any frame.
+
+#### 15. Evaluation
+
+- `eval_data` has no effect for CoMaD: `handover`, `react_stir` and `table_set` (and `cabinet`, `take`, `cart` for H-R) all load the whole test split. The `subtask` argument of `CoMaD_HR` is unused.
+- Only the FDE is printed; nothing is written to a file.
+- The print loop refers to a model `cvm`, but no baseline exists. Without a zero-velocity or constant-velocity number the errors have no reference.
+
+#### 16. Synthetic pairing
+
+- `random` and `np.random` are used without a seed, so the dataset itself is not reproducible.
+- Bob is another sequence, cut from its first frame to Alice's length. If Alice is the longest sequence, Bob is Alice herself.
+- The distance check subtracts joints of the same index (`cand_bob_pose - alice_pose`). It is not a distance between the two bodies.
+- A model with `one_hist: true` (Marginal) never uses Bob, so its pretraining does not need the pairing at all.
+
+#### 17. Smaller code items
+
+- `total_loss += loss * batch_dim` in all three training loops adds tensors that still carry their graph; the graph nodes of a whole epoch stay alive. `loss.item()` or `loss.detach()` avoids this.
+- Debug code is left in the pretraining loop (`scripts/pretrain_intent_forecaster.py:112-123`).
+- Checkpoints hold no optimizer or scheduler state, so a stopped run cannot be resumed.
+- The four dataset modules in `interact/utils/` import hydra and the two visualisation modules import matplotlib. `import interact` does not load them, but no test checks this.
+
+#### 18. Container on the Jetson
+
+- `docker/run_container.sh` mounts `<repo>/data`. On the Orin that folder is empty and owned by root; the datasets are in `~/datasets`.
+- The container is started interactively only (`-it --rm`), so a training run ends with the terminal.
+
+### Contradictions with the sections above
+
+| Statement above | What the scan shows |
+|---|---|
+| Header: "Last Updated: 02-11-2027" | The date lies in the future; left unchanged. |
+| Finding 2: "CoMaD consists of OptiTrack surface markers on 8 persons" | The metadata names 14 person IDs in H-H and 9 in H-R (finding 14). |
+| Finding 2, table: one CoMaD column with marker names | Holds for H-H. H-R has 11 unnamed points per person and a different order (finding 14). |
+| Finding 3, CoMaD H-H: "Inferred, not confirmed on data", check value 1.3–1.5 m | Confirmed on data: y-up, `BackTop` at 1.34–1.62 m (finding 14). |
+| Finding 4: "Lines 93–102" | The quoted code is at lines 94–102. |
+| Redesign, "How models are produced": "only if pretraining ran exactly 30 epochs", "a different `epochs` breaks the chain" | Fewer than 30 epochs break the chain. More than 30 do not: the next stage silently loads epoch 30 instead of the last one. |
+| Redesign, "Data loaders": "Four classes repeat the same windowing loop and the Alice/Bob flip" | All four repeat the windowing loop. Only `CMU_Mocap` and `CoMaD` flip; `Synthetic_AMASS` and `CoMaD_HR` do not. |
+| Redesign, "Data loaders": "about two million for AMASS" | About 1.3 million windows, each kept as four tensor objects (extrapolated, finding 10). |
+| Target design 2: "Train with `model=<name>`, deploy with `checkpoint=<name>`; nothing is copied or retyped" | Bob's joint list differs between the H-H and the H-R stage of the same model, and the training defaults differ from all package configs (finding 13). One file per model works only if the joint selection moves out of the model config. |
+| Target design 3: "validation each epoch" | CoMaD has no validation split (finding 9). The split has to be defined first. |
+| Target design 5: readers return sequences "at 15 Hz"; "Optional: cache the parsed JSON once as `.npz`" | The stored synthetic data is not at 15 Hz for 59% of the files (finding 8), so the reader cannot fix it; the data has to be regenerated. The package configs state `rate_hz: 15`. |
+| Potential Improvements: "Retrain Marginal on synthetic AMASS (pretraining)" | Marginal never uses Bob (finding 16). Its pretraining can read single-person AMASS sequences directly. |
+
+### Additions to the proposed design
+
+1. **Regenerate the synthetic data once**, together with the pelvis-orientation fix of Findings 1:
+   - resample by time to exactly 15 Hz;
+   - seed the pairing;
+   - write one `.npz` per split with the 9 joints only, plus source dataset, subject and source rate per sequence.
+2. **Hold each split as one tensor on the device and draw windows by index.** No DataLoader workers and no per-window objects. This replaces the "optional" cache of target design 5.
+3. **Joint selection in the readers.** Every reader delivers Bob (and the robot) in the layout the model expects, so the model config needs one Bob description for all stages (finding 13).
+4. **One training step for all stages**, built on the package's centring. A test checks that `forward` and `forward_inference` of the HR model agree.
+5. **Validation:**
+   - a CoMaD validation split by episode, taken from `train`;
+   - a zero-velocity baseline logged next to the model;
+   - the best and the last checkpoint, with optimizer and scheduler state;
+   - the config in package format next to the checkpoint.
+6. **Epochs and schedule per stage**, and a seed. `logging` instead of `print`, so Hydra's log file is filled.
+7. **`evaluate.py`** filters by task and writes the metrics to a file in the run folder.
+8. **A test that `import interact` loads none of hydra, matplotlib, tqdm, tensorboard.**
+9. **Container:** the data folder of `run_container.sh` becomes configurable, and a detached mode lets a run outlive the terminal.
+
+Order: 1 and 5 first, because every later comparison between runs depends on correct data and a validation number.
