@@ -7,13 +7,14 @@
 # Taken from https://github.com/dusty-nv/jetson-containers (last access 22.04.2026)
 FROM dustynv/l4t-pytorch:r36.4.0
 
-# The base image points pip at an index that no longer resolves; use PyPI by default.
+# The base image points pip at indexes that no longer resolve (PIP_INDEX_URL and an
+# extra index in its pip config files). Use PyPI by default and ignore the config files.
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_INDEX_URL=https://pypi.org/simple \
+    PIP_CONFIG_FILE=/dev/null \
     MPLBACKEND=Agg
-RUN rm -f /etc/pip.conf
 
 ##############################################################################
 ##                                 cuDSS                                    ##

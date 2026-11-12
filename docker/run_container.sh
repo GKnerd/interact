@@ -50,10 +50,16 @@ for FOLDER in .claude_container; do
     fi
 done
 
+# GPU access: the Jetson (aarch64, L4T) only supports the NVIDIA runtime, not --gpus
+case "$(uname -m)" in
+    aarch64) GPU_ARGS=(--runtime nvidia) ;;
+    *)       GPU_ARGS=(--gpus all) ;;
+esac
+
 docker run \
     --name $PACKAGE_NAME \
     -it \
-    --gpus all \
+    "${GPU_ARGS[@]}" \
     --ipc host \
     --net host \
     -v "$PACKAGE_ROOT":/home/${CONTAINER_USER}/interact \
