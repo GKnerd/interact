@@ -8,16 +8,6 @@ This section adds improvements to the InterACT model that are worth exploring af
 
 ## Findings 1
 
-#### 1. What the network sees
-
-Every input is centred per joint: `offset = alice_hist[:, -1]` holds all 27 values, and each joint has its own last position subtracted. This holds for the local encoder, the global encoder and the distance weighting (SPE). The forecast is a sum of displacements (`cumsum`) with the offset added back.
-
-- The network sees how each joint moved over the last second relative to where it is now. It never sees where the joints are relative to each other, so it sees neither the pose nor the bone lengths.
-- Bone lengths act only indirectly: the same rotation moves the wrist further on a longer forearm.
-- The network cannot tell which way the person faces. It only sees the direction of each movement in the axes of the training frame.
-- What does matter: which body point each joint is, consistently over time and across persons. A bone that stretches through tracker noise shows up as joint motion. A fixed SMPL-H skeleton per person avoids this.
-- Retargeting to training bone lengths (STATUS, generic node) has little effect for InterACT.
-
 #### 2. Point definitions differ between the training datasets
 
 The 9 slots mean different body points per dataset:
@@ -105,21 +95,12 @@ In `IntentInformedHRForecaster`, `conditional_forecaster: false` only zeroes Bob
 - Heading: A (random rotation about the vertical axis per training window, in pretraining and fine-tuning), as one function in the package. Evaluate the error per heading bin; it should be flat. Move to B only if it is not. Tilt is never removed.
 - Retrain Marginal on synthetic AMASS (pretraining) and own SMPL-H data (fine-tuning), without CoMaD. Compare against the Cornell Marginal on the own bags.
 - Until then, for the Cornell Marginal: rotate z-up to y-up in the adapter with a proper rotation (e.g. `(x, y, z) → (x, z, -y)` or `(-x, z, y)`; never a plain swap of two axes, which mirrors left and right) and the inverse on the output. Heading normalisation (B) in the adapter is worth a test only if the interim model is used for evaluation.
-- Bone lengths in the adapter contract: retargeting to training bone lengths has little effect for InterACT (finding 1).
+- Bone lengths in the adapter contract: retargeting to training bone lengths has little effect for InterACT (Obsidian: InterACT - Findings).
 
 
 ## Potential Redesign of the training pipeline
 
 ### Initially Proposed Design
-
-#### How Hydra is used
-
-| Problem | Consequence |
-|---|---|
-| Dataset classes call `hydra.compose("datasets")` in their constructors | They only work inside a running Hydra app. Command-line overrides don't reach them: `data_dir=/x` is impossible because `datasets.yaml` is composed separately from the main config. |
-| Eval scripts also `compose("eval_checkpoints")`; `eval_checkpoints.yaml` repeats the `Training` block and describes the Cornell models a second time | Three places describe models: `training.yaml`, `eval_checkpoints.yaml`, `interact/config/` |
-| Models are built with `_target_` plus `hydra.utils.instantiate` | Library code depends on Hydra conventions |
-| Two folders called `config` with different meanings | `config/` holds run settings (Hydra); `interact/config/` holds the checkpoint description (package) |
 
 #### How models are produced
 
@@ -216,7 +197,6 @@ Validation cannot be switched on by uncommenting the existing calls.
 
 #### 11. Logging
 
-- The Hydra log files of the three earlier pretraining runs (`outputs/2026-04-2*/`) are 0 bytes: the scripts use `print`, which Hydra does not capture.
 - Finetuning writes no TensorBoard scalar; `scripts/finetune_intent_forecaster.py:134` is commented out.
 - `scripts/hr_transfer.py:151` logs the alignment loss of the last batch divided by `n`, not the epoch mean (`total_alignment_loss` is summed but not used).
 

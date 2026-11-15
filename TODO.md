@@ -13,7 +13,7 @@
 
 - Checkpoints are plain `state_dict`s. Unused modules (`position_embeddings`, `pos_table2`, `layer_norm` of `Encoder`/`Decoder`) are among the saved keys; removing any module breaks strict loading.
 - Deployment image (`ros:jazzy-ros-base`): Python 3.12.3, numpy 1.26.4 and PyYAML 6.0.1 from apt. The package must keep working with numpy 1.26, or pip installs a second numpy over the one ROS uses.
-- Own runs from before the new container are in `interact/checkpoints/`; new runs write to `outputs/checkpoints/`.
+- Own runs from before the new container are in `interact/checkpoints/`. The pretraining script writes each run to `outputs/runs/`; finetuning and H-R transfer still write to `outputs/checkpoints/`.
 
 ## Next
 
@@ -26,8 +26,7 @@
 
 1. Training container on the x86 PC. **Done.**
 2. Training container on the Jetson Orin (aarch64), with the torch NVIDIA ships for its JetPack.
-3. Pipeline cleanup, tested on the Jetson where the datasets are (see Open → Code Related). Decisions still to make: Hydra only in the entry scripts; model configs taken from `interact/config/`; rename the Hydra folder `config/` to tell it apart from `interact/config/`; merge the scripts into one `train.py` and one `evaluate.py`.
-4. Logs (TensorBoard, Hydra run folders) into a `log/` folder.
+3. Pipeline cleanup, tested on the Jetson where the datasets are (see Open → Code Related). Decision still to make: merge the scripts into one `train.py` and one `evaluate.py`.
 
 **Step 3: weights**
 
@@ -47,15 +46,9 @@
 
 ### Environment Related
 - Eval scripts load a fixed `30.model`; finetuning and HR transfer also expect exactly `30.model` of the previous stage.
-- Data loaders read their own config: every dataset class calls `hydra.compose(...)` in its constructor to find its data folder. So they only work inside a running Hydra app, command-line overrides do not reach them, and they can't be used or tested on their own.
-- 'log' folder needs to be filled with logs from the training runs.
 
 ### Code Related
-- Two model descriptions (This is also by and large a problem of how hydra is being utilized right now and also the existence of two 'config' folders which carry different meaning):
-    - Training builds models from hh_models/hr_models in training.yaml (with _target_); `eval_checkpoints.yaml` describes the Cornell models a third time.
-    - The package builds them from interact/config/*.yaml.
-- A trained run produces weights, but no config in the package format, so you have to write interact/config/<name>.yaml for it by hand.
 - Centring is copied into every script, separately from the package's version.
-- Training runs without validation (commented out) and without a fixed random seed; a checkpoint is saved every epoch.
+- Training runs without validation (commented out); a checkpoint is saved every epoch.
 - Smaller items: pretrain and finetune are about 90% the same file; `hr_transfer` is the same loop plus the alignment loss; `benchmark.py` is `eval_hr.py` plus timing; eval_hr.py hard-codes .to('cuda').
 - 'bone_lengths' are missing from the API right now. Interact does not really see different bone lenghts due to the way it is implemented, but still might be usable. Need to decide on that.

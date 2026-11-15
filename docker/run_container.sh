@@ -33,7 +33,7 @@ else
 fi
 
 # Check and create necessary folders
-for FOLDER in log data outputs; do
+for FOLDER in data outputs; do
     HOST_PATH="$PACKAGE_ROOT/$FOLDER"
     if [ ! -d "$HOST_PATH" ]; then
         echo -e "${YELLOW_BOLD}Warning: $HOST_PATH does not exist. Creating it...${RESET}"
