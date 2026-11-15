@@ -3,29 +3,27 @@ import numpy as np
 import torch
 import os
 from interact.utils.read_json_data import read_json, get_pose_history
-from hydra import compose
 # from read_json_data import read_json, get_pose_history
 
 class Synthetic_AMASS(Dataset):
 
     def __init__(
-            self, 
-            # data_dir = './interact/data/synthetic_amass', 
+            self,
+            data_dir,
+            mapping_json,
             input_n = 15,
             output_n = 15,
             sample_rate = 15,
             output_rate = 15,
-            # mapping_json = "./interact/data/mapping/amass_mapping.json", 
             split='train'
             ):
-        cfg = compose(config_name="datasets", overrides=[])
-        self.data_dir = cfg.synthetic_amass
-        self.input_frames = input_n 
-        self.output_frames = output_n 
+        self.data_dir = data_dir
+        self.input_frames = input_n
+        self.output_frames = output_n
         self.sample_rate = sample_rate
         self.output_rate = output_rate
         self.split = split
-        self.mapping_json = cfg.amass_mapping
+        self.mapping_json = mapping_json
 
         self.alice_input, self.alice_output = [], []
         self.bob_input, self.bob_output = [], []
