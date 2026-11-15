@@ -1,0 +1,17 @@
+model: marginal
+seed: 0
+data_dir: ${oc.env:HOME}/data/synthetic_amass
+mapping_json: ${oc.env:HOME}/interact/mapping/amass_mapping.json
+epochs: 30
+batch_size: 256
+lr: 0.0003
+weight_decay: 0.00001
+milestones: [15, 25]
+gamma: 0.1
+
+hydra:
+  run:
+    dir: ${oc.env:HOME}/outputs/runs/${now:%Y-%m-%d_%H-%M-%S}_${model}
+  sweep:
+    dir: ${oc.env:HOME}/outputs/runs/${now:%Y-%m-%d_%H-%M-%S}_${model}_sweep
+    subdir: ${hydra.job.num}
