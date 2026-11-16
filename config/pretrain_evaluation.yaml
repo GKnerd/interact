@@ -1,0 +1,17 @@
+# Evaluation of one run of scripts/pretrain_intent_forecaster.py
+# (scripts/pretrain_intent_forecaster_evaluation.py)
+
+run_dir: ???          # the run folder, e.g. ${oc.env:HOME}/outputs/runs/<date>_<model>
+dataset: null         # null: the run's dataset; amass: AMASS data, also for a run trained on
+                      # synthetic_amass (its axes are reordered to the run's)
+data_dir: null        # null: the run's data_dir for its dataset
+test: false           # true: also the test split, for the best-val and the last checkpoint
+batch_size: 1024
+bootstrap_samples: 1000
+seed: 2026            # bootstrap resampling
+speed_bins: 5         # equally populated bins of motion speed
+example_joint: 6      # joint of the example trajectories (6: right wrist)
+
+hydra:
+  run:
+    dir: ${run_dir}/evaluation/${now:%Y-%m-%d_%H-%M-%S}
