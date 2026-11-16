@@ -1,9 +1,13 @@
+import logging
+
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import torch
 import os
-from interact.utils.read_json_data import read_json, get_pose_history
+from interact.utils.read_json_data import read_json
 # from read_json_data import read_json, get_pose_history
+
+log = logging.getLogger(__name__)
 
 class Synthetic_AMASS(Dataset):
 
@@ -42,15 +46,22 @@ class Synthetic_AMASS(Dataset):
         self.add_amass_dataset()
 
     def add_amass_dataset(self):
-        for episode in os.listdir(f'{self.data_dir}/{self.split}'):
-            # print(f'Episode: {self.data_dir}/{self.split}/{episode}')
-            json_data = read_json(f'{self.data_dir}/{self.split}/{episode}')
+        split_dir = f'{self.data_dir}/{self.split}'
+        # sorted, so the window order does not depend on the file system
+        episodes = sorted(f for f in os.listdir(split_dir) if f.endswith('.npz'))
+        if not episodes:
+            raise FileNotFoundError(f'no .npz files in {split_dir}')
+        # which file each window comes from: self.episodes[self.episode_index[i]] for window i
+        self.episodes = episodes
+        window_counts = []
+        for episode in episodes:
+            with np.load(f'{split_dir}/{episode}') as data:
+                alice_all = torch.from_numpy(data['alice'])
+                bob_all = torch.from_numpy(data['bob'])
 
             downsample_rate = self.sample_rate // self.output_rate
-            alice_tensor = get_pose_history(json_data, 
-                            "alice")[::downsample_rate,self.joint_used]
-            bob_tensor = get_pose_history(json_data, 
-                            "bob")[::downsample_rate,self.joint_used]
+            alice_tensor = alice_all[::downsample_rate, self.joint_used]
+            bob_tensor = bob_all[::downsample_rate, self.joint_used]
             # chop the tensor into a bunch of slices of size sequence_len
             for start_frame in range(alice_tensor.shape[0]-self.sequence_len):
                 end_frame = start_frame + self.sequence_len
@@ -59,8 +70,9 @@ class Synthetic_AMASS(Dataset):
 
                 self.bob_input.append(bob_tensor[start_frame:start_frame+self.input_n])
                 self.bob_output.append(bob_tensor[start_frame+self.input_n:end_frame])
-            # break
-        print(len(self.alice_input))
+            window_counts.append(max(alice_tensor.shape[0] - self.sequence_len, 0))
+        self.episode_index = np.repeat(np.arange(len(episodes)), window_counts)
+        log.info(f'{len(self.alice_input)} windows in {self.data_dir}/{self.split}')
 
     def __len__(self):
         return len(self.alice_input)
