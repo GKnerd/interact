@@ -2,7 +2,7 @@
 # Build the training image. Runs from root of the 'interact' package.
 
 PACKAGE_NAME="interact"
-CONTAINER_USER="interact"
+USERNAME="interact"
 IMAGE="$PACKAGE_NAME/train:$(uname -m)"
 
 uid=$(eval "id -u")
@@ -40,7 +40,7 @@ echo -e "${GREEN_BOLD}Building $IMAGE from $DOCKERFILE${RESET}"
 docker build \
     --build-arg USER_UID="$uid" \
     --build-arg USER_GID="$gid" \
-    --build-arg USER="$CONTAINER_USER" \
+    --build-arg USERNAME="$USERNAME" \
     --network host \
     -f "$DOCKERFILE" \
     -t $IMAGE .

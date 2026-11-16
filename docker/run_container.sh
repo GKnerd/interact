@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PACKAGE_NAME="interact"
-CONTAINER_USER="interact"
+USERNAME="interact"
 IMAGE="$PACKAGE_NAME/train:$(uname -m)"
 
 uid=$(eval "id -u")
@@ -56,15 +56,17 @@ case "$(uname -m)" in
     *)       GPU_ARGS=(--gpus all) ;;
 esac
 
+DATA_DIR="${DATA_DIR:-$PACKAGE_ROOT/data}"
+
 docker run \
     --name $PACKAGE_NAME \
     -it \
     "${GPU_ARGS[@]}" \
     --ipc host \
     --net host \
-    -v "$PACKAGE_ROOT":/home/${CONTAINER_USER}/interact \
-    -v "$PACKAGE_ROOT/data":/home/${CONTAINER_USER}/data \
-    -v "$PACKAGE_ROOT/outputs":/home/${CONTAINER_USER}/outputs \
-    -v $PACKAGE_ROOT/.claude_container:/home/${CONTAINER_USER}/.claude \
+    -v "$PACKAGE_ROOT":/home/${USERNAME}/interact \
+    -v "$DATA_DIR":/home/${USERNAME}/data \
+    -v "$PACKAGE_ROOT/outputs":/home/${USERNAME}/outputs \
+    -v $PACKAGE_ROOT/.claude_container:/home/${USERNAME}/.claude \
     --rm \
     $IMAGE
