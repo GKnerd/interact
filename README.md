@@ -106,13 +106,13 @@ Config keys:
 ## Dataset Installation and Preprocessing
 
 ### AMASS 
-Download datasets listed in ```configs/synthetic_amass.yaml``` from the official [AMASS website](https://amass.is.tue.mpg.de/). Use any of the SMPL-X or SMPL-H links to download each dataset.
+Download the datasets listed in ```config/amass_conversion.yaml``` from the official [AMASS website](https://amass.is.tue.mpg.de/). Use any of the SMPL-X or SMPL-H links to download each dataset.
 
-The AMASS dataset contains data of single human motion. Preprocess this data to create synthetic two-human data:
+Convert them to joint positions at 15 Hz, one person per sequence, z up:
 ```
-python scripts/create_synthetic_amass.data.py
+python scripts/convert_amass.py
 ```
-**Note**: Update the config file ```configs/synthetic_amass.yaml``` with the specific datasets you have in your data directory before running this script.
+**Note**: The datasets of each split are set in ```config/amass_conversion.yaml```.
 
 ### CoMaD
 Download the data from this link [Data](https://cornell.app.box.com/s/jb0wau30dqotcjsak78ks64ea1o88yan) into the correct data directory.

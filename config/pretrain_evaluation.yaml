@@ -2,9 +2,7 @@
 # (scripts/pretrain_intent_forecaster_evaluation.py)
 
 run_dir: ???          # the run folder, e.g. ${oc.env:HOME}/outputs/runs/<date>_<model>
-dataset: null         # null: the run's dataset; amass: AMASS data, also for a run trained on
-                      # synthetic_amass (its axes are reordered to the run's)
-data_dir: null        # null: the run's data_dir for its dataset
+data_dir: null        # null: the data_dir the run was trained with
 test: false           # true: also the test split, for the best-val and the last checkpoint
 batch_size: 1024
 bootstrap_samples: 1000

@@ -1,14 +1,13 @@
-"""Evaluate a run of scripts/pretrain_intent_forecaster.py on synthetic AMASS or AMASS.
+"""Evaluate a run of scripts/pretrain_intent_forecaster.py on AMASS.
 
 Reads the run folder: the run's settings (.hydra/config.yaml), model.yaml and checkpoints/.
 Every checkpoint is evaluated on the val split. With test=true, the best-val and the last
 checkpoint are also evaluated on the test split. Windows, centring and forward pass are the ones
 of training (script_utils/pretraining.py: each joint minus its own last history position,
-model(alice_hist, bob_hist, bob_future)).
+model(alice_hist, bob_hist, bob_future)). The data is z up.
 
-Data: the run's own dataset, or with dataset=amass the AMASS data for a run trained on synthetic
-AMASS (cross-evaluation). Its axes are then reordered to the run's (AXIS_ORDER), so both models
-can be compared on the same windows.
+Runs on synthetic AMASS, and the cross-evaluation between both, need the git tag
+synthetic-amass-baseline.
 
 Metrics, computed per window and averaged over windows:
 - MPJPE / mm: joint position error averaged over the 15 forecast steps (the training loss)
@@ -43,8 +42,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from interact.api import build_model
 from script_utils import plot_style as ps
-from script_utils.pretraining import (AXIS_ORDER, UP_AXIS, build_dataset, centre, check_dataset,
-                                      dataset_name)
+from script_utils.pretraining import build_dataset, centre
 
 log = logging.getLogger(__name__)
 
@@ -77,21 +75,6 @@ def train_curve(run_dir):
     except Exception as e:
         log.warning(f'no training curve from {run_dir / "tensorboard"}: {e}')
         return {}
-
-
-class ReorderedAxes:
-    """A dataset with its x, y, z reordered to the axes a model was trained on."""
-
-    def __init__(self, ds, order):
-        self.ds = ds
-        self.order = list(order)
-        self.episode_index = ds.episode_index
-
-    def __len__(self):
-        return len(self.ds)
-
-    def __getitem__(self, i):
-        return tuple(x[..., self.order] for x in self.ds[i])
 
 
 def stack(ds, start, stop):
@@ -399,17 +382,13 @@ def plot_speed(path, summaries, speed, edges, index, title):
 
 
 @torch.no_grad()
-def plot_examples(path, ds, model, model_err, joint, joint_name, up_axis, device, title):
+def plot_examples(path, ds, model, model_err, joint, joint_name, device, title):
     """Columns: windows at the median, P90 and P99 of the model's FDE.
-    Rows: top view and a view from the side, for data with y or z up."""
+    Rows: top view (x-y plane) and side view (x-z plane); the data is z up."""
     fde = model_err[:, -1].mean(axis=1)
     order = np.argsort(fde)
-    if up_axis == 'y':
-        views = [(0, 2, 'x', 'z'), (0, 1, 'x', 'y')]
-        view_names = 'top row: top view, bottom row: front view'
-    else:
-        views = [(0, 1, 'x', 'y'), (0, 2, 'x', 'z')]
-        view_names = 'top row: top view, bottom row: side view'
+    views = [(0, 1, 'x', 'y'), (0, 2, 'x', 'z')]
+    view_names = 'top row: top view, bottom row: side view'
     fig, axes = ps.figure(115, width=ps.TEXT_WIDTH, nrows=2, ncols=len(EXAMPLE_PERCENTILES))
     for col, q in enumerate(EXAMPLE_PERCENTILES):
         i = order[int(round(q / 100 * (len(order) - 1)))]
@@ -447,35 +426,25 @@ def main(cfg: DictConfig) -> None:
     fig_dir.mkdir()
     run_dir = pathlib.Path(cfg.run_dir)
     run_cfg, model_config, checkpoints = load_run(run_dir)
-    trained_on = dataset_name(run_cfg)
-    dataset = check_dataset(cfg.dataset or trained_on)
-    axis_order = AXIS_ORDER.get((dataset, trained_on))
-    if dataset != trained_on and axis_order is None:
-        raise ValueError(f'a run trained on {trained_on} cannot be evaluated on {dataset}')
-    if cfg.data_dir:
-        data_dir = cfg.data_dir
-    elif dataset == trained_on:
-        data_dir = run_cfg['data_dir']
-    else:
-        data_dir = run_cfg.get('data_dirs', {}).get(dataset)
-        if data_dir is None:
-            raise ValueError(f'the run config has no data_dirs.{dataset}: set data_dir=')
+    # AMASS runs record up_axis z in their model.yaml; synthetic AMASS runs have y
+    if model_config.get('up_axis') != 'z':
+        raise ValueError(f'{run_dir} was not trained on AMASS (up_axis '
+                         f'{model_config.get("up_axis")}); evaluate it at the git tag '
+                         'synthetic-amass-baseline')
+    data_dir = cfg.data_dir or run_cfg['data_dir']
     rate_hz = model_config.get('rate_hz', 15)
     joint_names = [n.replace('_', ' ') for n in model_config['joint_names']]
     shoulders = tuple(model_config['joint_names'].index(n)
                       for n in ('left_shoulder', 'right_shoulder'))
-    # after reordering, the data has the axes of the run's training data
-    up_axis = UP_AXIS[trained_on]
+    up = 2  # z up
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    log.info(f'run {run_dir} (trained on {trained_on}), model {model_config["model_class"]}, '
-             f'data {data_dir} ({dataset}), checkpoints {list(checkpoints)}, device {device}')
-    if axis_order is not None:
-        log.info(f'data axes reordered to the run\'s: {axis_order}')
+    log.info(f'run {run_dir}, model {model_config["model_class"]}, data {data_dir}, '
+             f'checkpoints {list(checkpoints)}, device {device}')
     log.info(f'wrists and hands: {joint_names[GROUPS["wrists_hands"]]}')
 
     def tagged(rows):
-        """Rows with the run and the data, so tables of several evaluations can be joined."""
-        return [dict(run=run_dir.name, dataset=dataset, **row) for row in rows]
+        """Rows with the run, so tables of several evaluations can be joined."""
+        return [dict(run=run_dir.name, **row) for row in rows]
 
     ps.apply_style()
     model = build_model(model_config, device=device)
@@ -487,15 +456,12 @@ def main(cfg: DictConfig) -> None:
         model.eval()
 
     def evaluate(split, epochs):
-        ds = build_dataset(run_cfg, split, data_dir, dataset)
-        if axis_order is not None:
-            ds = ReorderedAxes(ds, axis_order)
+        ds = build_dataset(run_cfg, split, data_dir)
         boot = Bootstrap(ds.episode_index, cfg.bootstrap_samples, cfg.seed)
         horizon = ds[0][1].shape[0]
         speed = history_speed(ds, rate_hz, cfg.batch_size)
         refs = {'zero_velocity': zero_velocity(horizon),
                 'constant_velocity': constant_velocity(horizon)}
-        up = 'xyz'.index(up_axis)
         ref_s = {m: summarise(*errors(ds, f, device, cfg.batch_size, shoulders, up), boot)
                  for m, f in refs.items()}
         model_err, model_s = {}, {}
@@ -546,7 +512,7 @@ def main(cfg: DictConfig) -> None:
                    f'FDE per motion speed ({name})')
         load(best)
         plot_examples(fig_dir / f'{split}_examples.pdf', ds, model, model_err[best],
-                      cfg.example_joint, joint_names[cfg.example_joint], up_axis, device,
+                      cfg.example_joint, joint_names[cfg.example_joint], device,
                       f'Example trajectories ({name})')
         for m in REFERENCES:
             for metric in ('mpjpe', 'fde'):

@@ -2,7 +2,7 @@
 
 amass_dir: '${oc.env:HOME}/data/amass'
 body_models_dir: '${oc.env:HOME}/interact/body_models/smpl_skeleton.npz'
-# the splits of synthetic_creation.yaml
+# the splits of the original InterACT pretraining
 train_datasets: ['CMU', 'MPI_Limits', 'Eyes_Japan_Dataset', 'KIT', 'EKUT', 'ACCAD']
 val_datasets: ['SFU']
 test_datasets: ['BioMotionLab_NTroje']

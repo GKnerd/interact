@@ -18,7 +18,7 @@ from script_utils.pretraining import build_dataset, centre, check_model
 log = logging.getLogger(__name__)
 
 
-@hydra.main(version_base=None, config_path='../config', config_name='synthetic_amass_training')
+@hydra.main(version_base=None, config_path='../config', config_name='pretraining')
 def main(cfg: DictConfig) -> None:
     torch.manual_seed(cfg.seed)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -29,10 +29,9 @@ def main(cfg: DictConfig) -> None:
     checkpoint_dir.mkdir()
 
     model_config = load_config(cfg.model)
-    check_model(cfg, model_config)
-    if cfg.dataset == 'amass':
-        # the package config describes its own training data; this run's data is z up
-        model_config = {**model_config, 'up_axis': 'z', 'frame': cfg.amass.frame}
+    check_model(model_config)
+    # the package config describes its own training data; this run's data is z up
+    model_config = {**model_config, 'up_axis': 'z', 'frame': cfg.amass.frame}
     (run_dir / 'model.yaml').write_text(
         f'# run: {run_dir}\n' + yaml.safe_dump(model_config, sort_keys=False)
     )
@@ -41,7 +40,7 @@ def main(cfg: DictConfig) -> None:
     writer = SummaryWriter(log_dir=str(run_dir / 'tensorboard'))
 
     dataset = build_dataset(cfg, 'train')
-    log.info(f'{len(dataset)} training windows from {cfg.data_dir} ({cfg.dataset})')
+    log.info(f'{len(dataset)} training windows from {cfg.data_dir}')
     train_dataloader = DataLoader(
         dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=8, pin_memory=True
     )
