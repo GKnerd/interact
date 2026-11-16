@@ -1,12 +1,15 @@
 amass_dir: '${oc.env:HOME}/data/amass/'
 body_models_dir: '${oc.env:HOME}/interact/body_models/smpl_skeleton.npz'
 
-# original splits below - can change to your own splits
+# original splits below 
 train_datasets: ['CMU', 'MPI_Limits', 'Eyes_Japan_Dataset', 'KIT', 'EKUT', 'ACCAD']
 val_datasets: ['SFU']
 test_datasets: ['BioMotionLab_NTroje']
 
 save_dir: '${oc.env:HOME}/data/synthetic_amass'
+
+# seeds Bob's pairing and placement
+seed: 2026
 
 hydra:
   run:

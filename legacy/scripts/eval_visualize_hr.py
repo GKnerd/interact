@@ -7,11 +7,11 @@ from torch.utils.data import DataLoader
 
 # Import the model and dataloader
 from interact.model.Models import IntentInformedHRForecaster
-from interact.utils.comad_hr import CoMaD_HR
+from legacy_utils.comad_hr import CoMaD_HR
 
 # Import the Facebook Renderer
-from interact.utils.visualization.generic_moded import AnimationRenderer
-from interact.utils.skeleton import SkeletonCoMaDHR
+from legacy_utils.visualization.generic_moded import AnimationRenderer
+from legacy_utils.skeleton import SkeletonCoMaDHR
 
 
 # ==========================================

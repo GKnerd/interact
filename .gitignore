@@ -20,6 +20,8 @@ new_hr_old/
 outputs/
 log/
 
+data/
+
 # Claude
 .claude_container
 

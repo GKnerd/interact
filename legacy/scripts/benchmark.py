@@ -6,7 +6,7 @@ import csv
 import os
 from interact.model.Models import IntentInformedHRForecaster
 from torch.utils.data import DataLoader, ConcatDataset
-from interact.utils.comad_hr import CoMaD_HR
+from legacy_utils.comad_hr import CoMaD_HR
 from interact.utils.loss_funcs import mpjpe_loss, fde_error, perjoint_error, perjoint_fde
 
 @hydra.main(version_base=None, config_path="../config", config_name="eval")

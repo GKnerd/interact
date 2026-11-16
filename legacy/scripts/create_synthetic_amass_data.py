@@ -1,13 +1,14 @@
+import logging
 import os
 from pathlib import Path
 import numpy as np
 import torch
-import random
-import json
 from interact.utils.ang2joint import *
 import copy
 import hydra
 from omegaconf import DictConfig
+
+log = logging.getLogger(__name__)
 
 @hydra.main(version_base=None, config_path="../config", config_name="synthetic_creation")
 def process_data(cfg: DictConfig):
@@ -30,12 +31,15 @@ def process_data(cfg: DictConfig):
         'test': cfg.test_datasets,
     }
 
-    for split in ['train', 'val', 'test']:
+    for split_index, split in enumerate(['train', 'val', 'test']):
         alice_filenames = []
         alice_poses = []
 
+        # One generator per split, so a split's Bob does not depend on the other splits
+        rng = np.random.default_rng([cfg.seed, split_index])
+
         lengths = []
-        print("IN SPLIT = ", split)
+        log.info(f'split {split}, seed {cfg.seed}')
         # for ds in amass_splits[split]:
         #     if not os.path.isdir(path_to_data + '/' + ds + '/'):
         #         continue
@@ -45,23 +49,23 @@ def process_data(cfg: DictConfig):
             ds_path = path_to_data / ds
             if not ds_path.is_dir():
                 continue
-            print('>>> loading {}'.format(ds))
+            log.info(f'loading {ds}')
 
-            # .rglob('**/*.npz') searches recursively through ALL sub-folders
-            for npz_file in ds_path.rglob('**/*.npz'):
+            # .rglob('**/*.npz') searches recursively through ALL sub-folders.
+            # Sorted, so the pairing does not depend on the file system's order
+            for npz_file in sorted(ds_path.rglob('**/*.npz')):
                 
-                # Keep filename tracking as a string
-                file_str_path = str(npz_file)
-                alice_filenames.append(file_str_path)
-
                 try:
                     # np.load accepts pathlib objects directly!
                     pose_all = np.load(npz_file)
                     poses = pose_all['poses']
                 except Exception as e:
-                    # Updated print statement since 'sub' and 'act' are no longer used
-                    print(f'no poses at {npz_file.name}: {e}')
+                    # e.g. CMU's shape.npz: gender and betas only, no motion
+                    log.warning(f'no poses at {npz_file}: {e}')
                     continue
+
+                # Added only after a successful load, so names and poses stay aligned
+                alice_filenames.append(str(npz_file))
 
             # for sub in os.listdir(path_to_data + '/' + ds + '/'):
             #     if not os.path.isdir(path_to_data + '/' + ds + '/' + sub):
@@ -109,7 +113,7 @@ def process_data(cfg: DictConfig):
         for alice_index, alice_pose in enumerate(alice_poses):
             bob_not_found = True
             while bob_not_found:
-                bob_index = random.randint(0, len(alice_poses)-1)
+                bob_index = int(rng.integers(len(alice_poses)))
                 if bob_index == alice_index: continue
                 bob_pose = alice_poses[bob_index]
 
@@ -126,8 +130,8 @@ def process_data(cfg: DictConfig):
             # import pdb; pdb.set_trace()
             away = False
             while not away:
-                translation = np.random.rand(2)*4-1
-                rotation = np.random.rand(1)*3.14*0.5
+                translation = rng.random(2)*4-1
+                rotation = rng.random(1)*3.14*0.5
 
                 cand_bob_pose = copy.deepcopy(bob_pose)
                 cand_bob_pose[:, :, [0, 2]] += translation
@@ -139,15 +143,11 @@ def process_data(cfg: DictConfig):
                 if dist > 0.5:
                     away = True
 
-            alice_bob_data = {
-                'alice': alice_pose.tolist(),
-                'bob': cand_bob_pose.tolist()
-            }
-            print(alice_filenames[idx])
+            log.info(alice_filenames[idx])
             filename = alice_filenames[idx].replace('/', '_').replace('.npz', '')
 
-            with open(f'{cfg.save_dir}/{split}/{filename}.json', 'w') as f:
-                json.dump(alice_bob_data, f, indent=4)
+            # float32 arrays (frames, 52 joints, 3), the same values the JSON files held
+            np.savez(f'{cfg.save_dir}/{split}/{filename}.npz', alice=alice_pose, bob=cand_bob_pose)
 
 if __name__ == '__main__':
     process_data()
