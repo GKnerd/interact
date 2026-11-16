@@ -87,10 +87,13 @@ Config keys:
   |   ├── utils
   |     ├── utility files...
   |   ├── scripts
-  |     ├── eval_hh.py / eval_hr.py        <- evaluation scripts
-  |     ├── pretrain_intent_forecaster.py  <- pretraining on H-H 
-  |     |── finetune_intent_forecaster.py  <- finetuning on H-H
-  |     |── hr_transfer.py                 <- transferring to H-R
+  |     ├── convert_amass.py                          <- AMASS to joint positions
+  |     ├── pretrain_intent_forecaster.py             <- pretraining on AMASS
+  |     ├── pretrain_intent_forecaster_evaluation.py  <- evaluation of a pretraining run
+  |   ├── legacy                                      <- original InterACT pipeline, see legacy/README.md
+  |     ├── scripts/finetune_intent_forecaster.py     <- finetuning on H-H
+  |     ├── scripts/hr_transfer.py                    <- transferring to H-R
+  |     ├── scripts/eval_hh.py / eval_hr.py           <- evaluation scripts
   |   ├── mapping
   |     ├── files for joint mapping...
   |   ├── body_models
@@ -112,7 +115,7 @@ Convert them to joint positions at 15 Hz, one person per sequence, z up:
 ```
 python scripts/convert_amass.py
 ```
-**Note**: The datasets of each split are set in ```config/amass_conversion.yaml```.
+**Note**: The datasets of each split are set in ```config/amass_conversion.yaml```. The original synthetic two-person AMASS of InterACT is in ```legacy/```, see ```legacy/README.md```.
 
 ### CoMaD
 Download the data from this link [Data](https://cornell.app.box.com/s/jb0wau30dqotcjsak78ks64ea1o88yan) into the correct data directory.
@@ -127,28 +130,29 @@ rm comad_data.zip
 
 ## Training
 
-1. Run the pretraining script on large-scale H-H data:
+1. Run the pretraining script on AMASS (one person, Marginal), and evaluate the run:
    ```bash
    python scripts/pretrain_intent_forecaster.py
+   python scripts/pretrain_intent_forecaster_evaluation.py run_dir=<run folder>
    ```
-2. Run the finetuning script on H-H interaction data. 
+2. Run the finetuning script on H-H interaction data (original pipeline). 
     ```bash
-    python scripts/finetune_intent_forecaster.py
+    python legacy/scripts/finetune_intent_forecaster.py
     ```
-3. Run the script to transfer the model to  the H-R setting. 
+3. Run the script to transfer the model to  the H-R setting (original pipeline). 
     ```bash
-    python scripts/hr_transfer.py
+    python legacy/scripts/hr_transfer.py
     ```
 
 ## Evaluation
 
-1. Run the evaluation script for H-H:
+1. Run the evaluation script for H-H (original pipeline):
    ```bash
-   python scripts/eval_hh.py
+   python legacy/scripts/eval_hh.py
    ```
-2. Run the evaluation script for H-R: 
+2. Run the evaluation script for H-R (original pipeline): 
     ```bash
-    python scripts/eval_hr.py
+    python legacy/scripts/eval_hr.py
     ```
 
 

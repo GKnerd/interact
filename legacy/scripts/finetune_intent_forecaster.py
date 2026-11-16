@@ -6,6 +6,7 @@ import numpy as np
 import torch_dct as dct #https://github.com/zh217/torch-dct
 import time
 import hydra
+from hydra import compose
 from omegaconf import DictConfig
 
 from interact.model.Models import IntentInformedForecaster
@@ -14,12 +15,12 @@ from torch.autograd import Variable
 import torch.nn as nn
 from torch.nn import init
 import pathlib
-from interact.utils.arg_parser import get_parser
+from legacy_utils.arg_parser import get_parser
 from torch.utils.tensorboard import SummaryWriter
 
-from interact.utils.cmu_mocap import CMU_Mocap
-from interact.utils.synthetic_amass import Synthetic_AMASS
-from interact.utils.comad import CoMaD
+from legacy_utils.cmu_mocap import CMU_Mocap
+from legacy_utils.synthetic_amass import Synthetic_AMASS
+from legacy_utils.comad import CoMaD
 from torch.utils.data import ConcatDataset, DataLoader
 
 dataset_map = {
@@ -36,7 +37,10 @@ def get_dataloader(split='train', batch_size=256, include_amass=True, include_CM
         datalst.append(dataset_map['CMU-Mocap'][split])
     if include_amass:
         if split not in dataset_map['AMASS']:
-            dataset_map['AMASS'][split] = Synthetic_AMASS(split=split)
+            # Synthetic_AMASS takes its folder and mapping as arguments, from datasets.yaml
+            datasets = compose(config_name="datasets")
+            dataset_map['AMASS'][split] = Synthetic_AMASS(
+                datasets.synthetic_amass, datasets.amass_mapping, split=split)
         datalst.append(dataset_map['AMASS'][split])
     if include_COMAD:
         if split not in dataset_map['COMAD']:

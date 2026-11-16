@@ -15,13 +15,13 @@ from torch.autograd import Variable
 import torch.nn as nn
 from torch.nn import init
 import pathlib
-from interact.utils.arg_parser import get_parser
+from legacy_utils.arg_parser import get_parser
 from torch.utils.tensorboard import SummaryWriter
 
-from interact.utils.cmu_mocap import CMU_Mocap
-from interact.utils.synthetic_amass import Synthetic_AMASS
-from interact.utils.comad import CoMaD
-from interact.utils.comad_hr import CoMaD_HR
+from legacy_utils.cmu_mocap import CMU_Mocap
+from legacy_utils.synthetic_amass import Synthetic_AMASS
+from legacy_utils.comad import CoMaD
+from legacy_utils.comad_hr import CoMaD_HR
 from torch.utils.data import ConcatDataset, DataLoader
 
 dataset_map = {

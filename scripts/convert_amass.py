@@ -2,8 +2,8 @@
 Converts AMASS to joint positions in the world frame at an exact rate, one file per sequence.
 
 AMASS stores joint rotations (axis-angle), the root position `trans` and the capture rate; the
-models need joint positions. Unlike the earlier synthetic AMASS (git tag synthetic-amass-baseline),
-the pelvis rotation is kept:
+models need joint positions. Unlike the original synthetic AMASS
+(legacy/scripts/create_synthetic_amass_data.py), the pelvis rotation is kept:
 forward kinematics with the real pelvis rotation plus `trans` gives AMASS's own world frame (z up),
 with heading, lean and the path across the floor. The body is the template skeleton; betas are
 not used.

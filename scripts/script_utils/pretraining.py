@@ -3,8 +3,9 @@ Data of the pretraining runs, shared by pretrain_intent_forecaster.py and its ev
 build and centre the windows the same way.
 
 The data is AMASS from convert_amass.py (z up). It holds one person; the partner inputs are zeros,
-so only a model that ignores the partner (Marginal) can train on it. Synthetic AMASS (two persons,
-y up) was removed; its last state is the git tag synthetic-amass-baseline.
+so only a model that ignores the partner (Marginal) can train on it. The original synthetic
+two-person AMASS (y up) is in legacy/; the state of the comparison is the git tag
+synthetic-amass-baseline.
 """
 import torch
 
