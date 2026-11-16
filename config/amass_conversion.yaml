@@ -1,0 +1,14 @@
+# AMASS -> joint positions in the world frame (z up) at a fixed rate (scripts/convert_amass.py)
+
+amass_dir: '${oc.env:HOME}/data/amass'
+body_models_dir: '${oc.env:HOME}/interact/body_models/smpl_skeleton.npz'
+# the splits of synthetic_creation.yaml
+train_datasets: ['CMU', 'MPI_Limits', 'Eyes_Japan_Dataset', 'KIT', 'EKUT', 'ACCAD']
+val_datasets: ['SFU']
+test_datasets: ['BioMotionLab_NTroje']
+rate: 15              # Hz; another rate goes into its own save_dir
+save_dir: '${oc.env:HOME}/data/amass_${rate}hz'
+
+hydra:
+  run:
+    dir: '${oc.env:HOME}/outputs/hydra/${now:%Y-%m-%d}/${now:%H-%M-%S}'
