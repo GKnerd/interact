@@ -19,7 +19,7 @@ import torch
 import yaml
 
 from interact.constants import MODEL_CLASS_NAMES, ROBOT_CENTRE
-from interact.model import Models
+from interact.model import Models, TimeDCTModels
 from interact.model.Models import IntentInformedForecaster, IntentInformedHRForecaster
 
 
@@ -47,7 +47,8 @@ def build_model(
     name = config['model_class']
     if name not in MODEL_CLASS_NAMES:
         raise ValueError(f'unknown model_class {name!r}')
-    model = getattr(Models, name)(**config['model'], device=device).to(device)
+    model_class = getattr(Models, name, None) or getattr(TimeDCTModels, name)
+    model = model_class(**config['model'], device=device).to(device)
     if weights_path is not None:
         state = torch.load(weights_path, map_location=device, weights_only=True)
         model.load_state_dict(state)
