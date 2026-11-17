@@ -3,8 +3,8 @@
 Reads the run folder: the run's settings (.hydra/config.yaml), model.yaml and checkpoints/.
 Every checkpoint is evaluated on the val split. With test=true, the best-val and the last
 checkpoint are also evaluated on the test split. Windows, centring and forward pass are the ones
-of training (script_utils/pretraining.py: each joint minus its own last history position,
-model(alice_hist, bob_hist, bob_future)). The data is z up.
+of training (script_utils/pretraining.py; the run's `centring` from script_utils/centring.py,
+`joint` for runs without it; model(alice_hist, bob_hist, bob_future)). The data is z up.
 
 Runs on synthetic AMASS, and the cross-evaluation between both, need the git tag
 synthetic-amass-baseline.
@@ -42,7 +42,8 @@ from omegaconf import DictConfig, OmegaConf
 
 from interact.api import build_model
 from script_utils import plot_style as ps
-from script_utils.pretraining import build_dataset, centre
+from script_utils.centring import get_centring
+from script_utils.pretraining import build_dataset
 
 log = logging.getLogger(__name__)
 
@@ -123,19 +124,20 @@ def heading_error(pred, truth, shoulders, up):
 
 
 @torch.no_grad()
-def errors(ds, forecast, device, batch_size, shoulders, up):
+def errors(ds, forecast, device, batch_size, shoulders, up, centre_batch):
     """Joint position error in mm (windows, forecast steps, joints) and heading error in degrees
     (windows, forecast steps)."""
     n = len(ds)
     err = heading = None
     for start in range(0, n, batch_size):
         raw = [b.to(device) for b in stack(ds, start, min(start + batch_size, n))]
-        alice_hist, alice_fut, bob_hist, bob_fut = centre(raw)
+        alice_hist, alice_fut, bob_hist, bob_fut = centre_batch(raw)
         batch, steps = alice_fut.shape[:2]
         pred = forecast(alice_hist, bob_hist, bob_fut).reshape(batch, steps, -1, 3)
         e = (pred - alice_fut.reshape(batch, steps, -1, 3)).norm(dim=-1) * 1000
-        # headings need the real shoulder line: undo the per-joint centring
-        h = heading_error(pred + raw[0][:, -1:], raw[1], shoulders, up)
+        # headings need the real shoulder line: undo the centring (zero for pelvis centring)
+        offset = raw[0][:, -1:] - alice_hist[:, -1:].reshape(batch, 1, -1, 3)
+        h = heading_error(pred + offset, raw[1], shoulders, up)
         if err is None:
             err = np.empty((n, steps, e.shape[-1]), np.float32)
             heading = np.empty((n, steps), np.float32)
@@ -382,7 +384,7 @@ def plot_speed(path, summaries, speed, edges, index, title):
 
 
 @torch.no_grad()
-def plot_examples(path, ds, model, model_err, joint, joint_name, device, title):
+def plot_examples(path, ds, model, model_err, joint, joint_name, device, title, centre_batch):
     """Columns: windows at the median, P90 and P99 of the model's FDE.
     Rows: top view (x-y plane) and side view (x-z plane); the data is z up."""
     fde = model_err[:, -1].mean(axis=1)
@@ -392,7 +394,7 @@ def plot_examples(path, ds, model, model_err, joint, joint_name, device, title):
     fig, axes = ps.figure(115, width=ps.TEXT_WIDTH, nrows=2, ncols=len(EXAMPLE_PERCENTILES))
     for col, q in enumerate(EXAMPLE_PERCENTILES):
         i = order[int(round(q / 100 * (len(order) - 1)))]
-        alice_hist, alice_fut, bob_hist, bob_fut = [b.to(device) for b in centre(stack(ds, i, i + 1))]
+        alice_hist, alice_fut, bob_hist, bob_fut = [b.to(device) for b in centre_batch(stack(ds, i, i + 1))]
         pred = model(alice_hist, bob_hist, bob_fut.clone())
         hist, truth, pred = [x.reshape(x.shape[1], -1, 3)[:, joint].cpu().numpy() * 1000
                              for x in (alice_hist, alice_fut, pred)]
@@ -437,9 +439,12 @@ def main(cfg: DictConfig) -> None:
     shoulders = tuple(model_config['joint_names'].index(n)
                       for n in ('left_shoulder', 'right_shoulder'))
     up = 2  # z up
+    # runs from before the centring option centred each joint on itself
+    centring = run_cfg.get('centring', 'joint')
+    centre_batch = get_centring(centring, run_cfg['amass']['frame'])
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     log.info(f'run {run_dir}, model {model_config["model_class"]}, data {data_dir}, '
-             f'checkpoints {list(checkpoints)}, device {device}')
+             f'centring {centring}, checkpoints {list(checkpoints)}, device {device}')
     log.info(f'wrists and hands: {joint_names[GROUPS["wrists_hands"]]}')
 
     def tagged(rows):
@@ -462,13 +467,14 @@ def main(cfg: DictConfig) -> None:
         speed = history_speed(ds, rate_hz, cfg.batch_size)
         refs = {'zero_velocity': zero_velocity(horizon),
                 'constant_velocity': constant_velocity(horizon)}
-        ref_s = {m: summarise(*errors(ds, f, device, cfg.batch_size, shoulders, up), boot)
+        ref_s = {m: summarise(*errors(ds, f, device, cfg.batch_size, shoulders, up,
+                                      centre_batch), boot)
                  for m, f in refs.items()}
         model_err, model_s = {}, {}
         for epoch in epochs:
             load(epoch)
             model_err[epoch], heading = errors(ds, model_forecaster(model), device,
-                                               cfg.batch_size, shoulders, up)
+                                               cfg.batch_size, shoulders, up, centre_batch)
             model_s[epoch] = summarise(model_err[epoch], heading, boot)
         log.info(f'{split}: {len(ds)} windows from {boot.n_sequences} sequences')
         for m in REFERENCES:
@@ -513,7 +519,7 @@ def main(cfg: DictConfig) -> None:
         load(best)
         plot_examples(fig_dir / f'{split}_examples.pdf', ds, model, model_err[best],
                       cfg.example_joint, joint_names[cfg.example_joint], device,
-                      f'Example trajectories ({name})')
+                      f'Example trajectories ({name})', centre_batch)
         for m in REFERENCES:
             for metric in ('mpjpe', 'fde'):
                 gain = 1 - model_s[best]['all'][metric][0] / ref_s[m]['all'][metric][0]

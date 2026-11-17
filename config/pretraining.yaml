@@ -7,6 +7,8 @@ mapping_json: ${oc.env:HOME}/interact/mapping/amass_mapping.json
 amass:
   joint_names: [Neck, L_Shoulder, R_Shoulder, L_Elbow, R_Elbow, L_Wrist, R_Wrist, L_Hand, R_Hand]
   frame: window       # window: relative to the pelvis and heading at the last history frame; world
+centring: joint       # joint: each joint minus its own last history position (runs 0, 1);
+                      # pelvis: none, the window frame's origin is kept (needs frame window)
 epochs: 30
 batch_size: 256
 lr: 0.0003

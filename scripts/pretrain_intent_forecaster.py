@@ -13,7 +13,8 @@ from tqdm import tqdm
 
 from interact.api import build_model, load_config
 from interact.utils.loss_funcs import mpjpe_loss
-from script_utils.pretraining import build_dataset, centre, check_model
+from script_utils.centring import get_centring
+from script_utils.pretraining import build_dataset, check_model
 
 log = logging.getLogger(__name__)
 
@@ -30,6 +31,8 @@ def main(cfg: DictConfig) -> None:
 
     model_config = load_config(cfg.model)
     check_model(model_config)
+    centre_batch = get_centring(cfg.centring, cfg.amass.frame)
+    log.info(f'centring: {cfg.centring}')
     # the package config describes its own training data; this run's data is z up
     model_config = {**model_config, 'up_axis': 'z', 'frame': cfg.amass.frame}
     (run_dir / 'model.yaml').write_text(
@@ -55,7 +58,7 @@ def main(cfg: DictConfig) -> None:
         model.train()
         progress_bar = tqdm(train_dataloader, desc=f'Epoch {epoch + 1}/{cfg.epochs}')
         for batch in progress_bar:
-            alice_hist, alice_fut, bob_hist, bob_fut = [b.to(device) for b in centre(batch)]
+            alice_hist, alice_fut, bob_hist, bob_fut = [b.to(device) for b in centre_batch(batch)]
             alice_forecasts = model(alice_hist, bob_hist, bob_fut)
             loss = mpjpe_loss(alice_forecasts, alice_fut)
 
